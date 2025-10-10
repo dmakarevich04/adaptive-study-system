@@ -1,0 +1,6 @@
+BEGIN;
+ALTER TABLE public."Test"
+    ALTER COLUMN "moduleId" DROP NOT NULL;
+ALTER TABLE public."Test"
+    ALTER COLUMN "courseId" DROP NOT NULL;
+COMMIT;

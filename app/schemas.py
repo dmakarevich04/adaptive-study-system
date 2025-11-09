@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import date
 
 class UserCreate(BaseModel):
     login: str
@@ -79,6 +80,8 @@ class QuestionCreate(BaseModel):
     text: str
     complexityPoints: int
     testId: int
+    questionType: Optional[str] = 'test'
+    topicId: Optional[int] = None
 
 
 class QuestionRead(BaseModel):
@@ -87,6 +90,8 @@ class QuestionRead(BaseModel):
     picture: Optional[str]
     complexityPoints: int
     testId: int
+    questionType: str
+    topicId: Optional[int]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -110,6 +115,51 @@ class TestResultCreate(BaseModel):
     result: int
     testId: int
     userId: int
+
+class UserAnswerCreate(BaseModel):
+    userId: int
+    testResultId: int
+    questionId: int
+    isCorrect: bool
+    timeSpentInMinutes: Optional[int]
+
+class UserAnswerRead(BaseModel):
+    id: int
+    userId: int
+    testResultId: int
+    questionId: int
+    isCorrect: bool
+    timeSpentInMinutes: Optional[int]
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserModuleKnowledgeCreate(BaseModel):
+    userId: int
+    moduleId: int
+    knowledge: float
+
+class UserModuleKnowledgeRead(BaseModel):
+    id: int
+    userId: int
+    moduleId: int
+    knowledge: float
+    lastUpdated: Optional[date]
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserCourseKnowledgeCreate(BaseModel):
+    userId: int
+    courseId: int
+    knowledge: float
+
+class UserCourseKnowledgeRead(BaseModel):
+    id: int
+    userId: int
+    courseId: int
+    knowledge: float
+    lastUpdated: Optional[date]
+
+    model_config = ConfigDict(from_attributes=True)
 
 class TestResultRead(BaseModel):
     id: int
@@ -145,15 +195,15 @@ class TopicContentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class CourseEnrollmentCreate(BaseModel):
-    dateStarted: Optional[str]
-    dateEnded: Optional[str]
+    dateStarted: Optional[date]
+    dateEnded: Optional[date]
     courseId: int
     userId: int
 
 class CourseEnrollmentRead(BaseModel):
     id: int
-    dateStarted: Optional[str]
-    dateEnded: Optional[str]
+    dateStarted: Optional[date]
+    dateEnded: Optional[date]
     courseId: int
     userId: int
 
@@ -163,14 +213,14 @@ class ModulePassedCreate(BaseModel):
     moduleId: int
     isPassed: bool
     userId: int
-    datePassed: Optional[str]
+    datePassed: Optional[date]
 
 class ModulePassedRead(BaseModel):
     id: int
     moduleId: int
     isPassed: bool
     userId: int
-    datePassed: Optional[str]
+    datePassed: Optional[date]
 
     model_config = ConfigDict(from_attributes=True)
 

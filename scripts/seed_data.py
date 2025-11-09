@@ -125,6 +125,26 @@ def run():
         VALUES (1, 10, true, 5, 100, 1, 1)
         ON CONFLICT (id) DO NOTHING;
         """,
+  # UserAnswer
+  """
+  INSERT INTO public."UserAnswer" (id, "userId", "testResultId", "questionId", "isCorrect", "timeSpentInMinutes")
+  VALUES (1, 1, 1, 1, true, 1)
+  ON CONFLICT (id) DO NOTHING;
+  """,
+
+  # UserModuleKnowledge
+  """
+  INSERT INTO public."UserModuleKnowledge" (id, "userId", "moduleId", knowledge, "lastUpdated")
+  VALUES (1, 1, 1, 0.75, CURRENT_DATE)
+  ON CONFLICT (id) DO NOTHING;
+  """,
+
+  # UserCourseKnowledge
+  """
+  INSERT INTO public."UserCourseKnowledge" (id, "userId", "courseId", knowledge, "lastUpdated")
+  VALUES (1, 1, 1, 0.6, CURRENT_DATE)
+  ON CONFLICT (id) DO NOTHING;
+  """,
     ]
 
     with engine.begin() as conn:

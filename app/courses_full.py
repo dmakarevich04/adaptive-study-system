@@ -20,6 +20,9 @@ from .models import (
     RolePermission as RolePermissionModel,
     Test as TestModel,
     TestResult as TestResultModel,
+    UserAnswer as UserAnswerModel,
+    UserModuleKnowledge as UserModuleKnowledgeModel,
+    UserCourseKnowledge as UserCourseKnowledgeModel,
 )
 from .schemas import (
     CourseCategoryCreate,
@@ -32,8 +35,14 @@ from .schemas import (
     RolePermissionRead,
     RoleRead,
     TestResultRead,
+    UserAnswerCreate,
+    UserAnswerRead,
+    UserModuleKnowledgeCreate,
+    UserModuleKnowledgeRead,
+    UserCourseKnowledgeCreate,
+    UserCourseKnowledgeRead,
 )
-from .utils import generate_unique_id
+from .utils import generate_unique_id, compute_test_score, compute_module_knowledge, compute_course_knowledge
 
 TEST_PASS_PERCENT = int(os.environ.get("TEST_PASS_PERCENT", "50"))
 _max_attempts_env = os.environ.get("TEST_MAX_ATTEMPTS", "3")
@@ -58,7 +67,6 @@ def create_category(payload: CourseCategoryCreate, db: Session = Depends(get_db)
     db.refresh(category)
     return category
 
-
 @router.get(
     "/admin/categories",
     response_model=list[CourseCategoryRead],
@@ -67,7 +75,6 @@ def create_category(payload: CourseCategoryCreate, db: Session = Depends(get_db)
 )
 def list_categories(limit: int = 100, offset: int = 0, db: Session = Depends(get_db)):
     return db.query(CourseCategoryModel).offset(offset).limit(limit).all()
-
 
 @router.get(
     "/admin/categories/{cat_id}",
@@ -80,7 +87,6 @@ def get_category(cat_id: int, db: Session = Depends(get_db)):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
-
 
 @router.put(
     "/admin/categories/{cat_id}",
@@ -98,7 +104,6 @@ def update_category(cat_id: int, payload: CourseCategoryCreate, db: Session = De
     db.commit()
     db.refresh(category)
     return category
-
 
 @router.delete(
     "/admin/categories/{cat_id}",
@@ -131,7 +136,6 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db)):
     db.refresh(role)
     return role
 
-
 @router.get(
     "/admin/roles",
     response_model=list[RoleRead],
@@ -141,7 +145,6 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db)):
 )
 def list_roles(db: Session = Depends(get_db)):
     return db.query(RoleModel).all()
-
 
 @router.get(
     "/admin/roles/{role_id}",
@@ -155,7 +158,6 @@ def get_role(role_id: int, db: Session = Depends(get_db)):
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     return role
-
 
 @router.put(
     "/admin/roles/{role_id}",
@@ -556,6 +558,7 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
 
     result = TestResultModel()
     result.scoreInPoints = correct
+    # initially mark based on raw percent; will update after detailed scoring
     result.isPassed = passed
     result.durationInMinutes = 0
     result.result = percent
@@ -565,6 +568,50 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
     db.commit()
     db.refresh(result)
 
+    # Bulk-save UserAnswer rows based on provided answers (if any)
+    try:
+        for question in questions:
+            provided: Any | None = None
+            if isinstance(answers, dict):
+                provided = answers.get(question.id)
+                if provided is None:
+                    provided = answers.get(str(question.id))
+            if provided is None:
+                continue
+            try:
+                answer_id = int(provided)
+            except Exception:
+                continue
+            answer = db.get(AnswerModel, answer_id)
+            # Only save if the answer belongs to the question
+            if answer and answer.questionId == question.id:
+                ua = UserAnswerModel()
+                ua.id = generate_unique_id(db, UserAnswerModel)
+                ua.userId = uid
+                ua.testResultId = result.id
+                ua.questionId = question.id
+                ua.isCorrect = bool(answer.isCorrect)
+                ua.timeSpentInMinutes = None
+                db.add(ua)
+        db.commit()
+    except Exception:
+        # don't fail test submission on UserAnswer save error
+        db.rollback()
+
+    # Recompute precise test score using per-question data if available
+    try:
+        precise_score = compute_test_score(db, test_id, result.id)
+        # store computed percent and passed flag
+        result.result = int(round(precise_score))
+        result.isPassed = precise_score >= TEST_PASS_PERCENT
+        db.add(result)
+        db.commit()
+        db.refresh(result)
+    except Exception:
+        # ignore recalculation errors to avoid breaking submission
+        db.rollback()
+
+    # update ModulePassed using the (possibly recomputed) result
     if test and test.moduleId:
         module_passed = (
             db.query(ModulePassedModel)
@@ -572,19 +619,42 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
             .first()
         )
         if module_passed:
-            if passed and not module_passed.isPassed:
+            if result.isPassed and not module_passed.isPassed:
                 module_passed.isPassed = True
+                db.add(module_passed)
+                db.commit()
+                db.refresh(module_passed)
+            else:
+                # ensure flag reflects latest
+                module_passed.isPassed = bool(module_passed.isPassed)
                 db.add(module_passed)
                 db.commit()
                 db.refresh(module_passed)
         else:
             module_passed = ModulePassedModel()
             module_passed.moduleId = test.moduleId
-            module_passed.isPassed = passed
+            module_passed.isPassed = bool(result.isPassed)
             module_passed.userId = uid
             db.add(module_passed)
             db.commit()
             db.refresh(module_passed)
+
+    # Trigger recompute of aggregated module/course knowledge for this user
+    try:
+        if test and test.moduleId:
+            compute_module_knowledge(db, uid, test.moduleId)
+        # derive course id
+        course_id_for_calc = None
+        if test and test.courseId:
+            course_id_for_calc = test.courseId
+        elif test and test.moduleId:
+            mod = db.get(ModuleModel, test.moduleId)
+            course_id_for_calc = getattr(mod, 'courseId', None) if mod else None
+        if course_id_for_calc:
+            compute_course_knowledge(db, uid, course_id_for_calc)
+    except Exception:
+        # don't fail submission on aggregate recalculation error
+        pass
 
     return {
         "score": result.scoreInPoints,
@@ -592,3 +662,302 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
         "passed": result.isPassed,
         "attempts": attempts_count + 1,
     }
+
+
+
+@router.post(
+    "/answers",
+    response_model=UserAnswerRead,
+    summary="Сохранить ответ на вопрос",
+    description="Сохраняет один ответ пользователя на вопрос (используется при детальном сохранении теста).",
+)
+def create_user_answer(payload: UserAnswerCreate, current=Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current.id)
+    # enforce that user can only create answers for themselves
+    if payload.userId != uid:
+        raise HTTPException(status_code=403, detail="Cannot create answers for other users")
+    ua = UserAnswerModel()
+    ua.id = generate_unique_id(db, UserAnswerModel)
+    ua.userId = payload.userId
+    ua.testResultId = payload.testResultId
+    ua.questionId = payload.questionId
+    ua.isCorrect = payload.isCorrect
+    ua.timeSpentInMinutes = payload.timeSpentInMinutes
+    db.add(ua)
+    db.commit()
+    db.refresh(ua)
+
+    # Trigger recalculation of module and course knowledge when a new answer appears
+    try:
+        # determine test/module/course from question/test
+        q = db.get(QuestionModel, ua.questionId)
+        if q:
+            test_obj = db.get(TestModel, getattr(q, 'testId', None))
+            module_id = getattr(test_obj, 'moduleId', None) if test_obj else None
+            course_id = getattr(test_obj, 'courseId', None) if test_obj else None
+            # compute module knowledge if applicable
+            if module_id:
+                compute_module_knowledge(db, ua.userId, module_id)
+            # compute course knowledge; if test links to module, derive course from module
+            if not course_id and module_id:
+                mod = db.get(ModuleModel, module_id)
+                course_id = getattr(mod, 'courseId', None) if mod else None
+            if course_id:
+                compute_course_knowledge(db, ua.userId, course_id)
+    except Exception:
+        # Don't fail the request if recalculation fails; log could be added here.
+        pass
+
+    return ua
+
+
+@router.get(
+    "/answers/me",
+    response_model=list[UserAnswerRead],
+    summary="Мои ответы на вопросы",
+    description="Возвращает все сохранённые ответы текущего пользователя.",
+)
+def my_answers(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current.id)
+    return db.query(UserAnswerModel).filter(UserAnswerModel.userId == uid).all()
+
+
+@router.get(
+    "/admin/answers",
+    response_model=list[UserAnswerRead],
+    dependencies=[Depends(require_role("admin"))],
+    summary="Список всех ответов",
+    description="Возвращает все записи UserAnswer. Только для администраторов.",
+)
+def admin_list_answers(db: Session = Depends(get_db)):
+    return db.query(UserAnswerModel).all()
+
+
+@router.get(
+    "/admin/answers/{ua_id}",
+    response_model=UserAnswerRead,
+    dependencies=[Depends(require_role("admin"))],
+    summary="Получить ответ пользователя",
+)
+def admin_get_answer(ua_id: int, db: Session = Depends(get_db)):
+    ua = db.get(UserAnswerModel, ua_id)
+    if not ua:
+        raise HTTPException(status_code=404, detail="UserAnswer not found")
+    return ua
+
+
+@router.delete(
+    "/admin/answers/{ua_id}",
+    dependencies=[Depends(require_role("admin"))],
+    summary="Удалить ответ пользователя",
+)
+def admin_delete_answer(ua_id: int, db: Session = Depends(get_db)):
+    ua = db.get(UserAnswerModel, ua_id)
+    if not ua:
+        raise HTTPException(status_code=404, detail="UserAnswer not found")
+    db.delete(ua)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get(
+    "/me/modules/knowledge",
+    response_model=list[UserModuleKnowledgeRead],
+    summary="Уровень знаний по модулям (мои)",
+    description="Возвращает агрегированные знания пользователя по модулям.",
+)
+def my_module_knowledge(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current.id)
+    return db.query(UserModuleKnowledgeModel).filter(UserModuleKnowledgeModel.userId == uid).all()
+
+
+@router.get(
+    "/admin/module-knowledge",
+    response_model=list[UserModuleKnowledgeRead],
+    dependencies=[Depends(require_role("admin"))],
+    summary="Список знаний по модулям",
+    description="Возвращает все записи UserModuleKnowledge. Только для администраторов.",
+)
+def admin_list_module_knowledge(db: Session = Depends(get_db)):
+    return db.query(UserModuleKnowledgeModel).all()
+
+
+@router.get(
+    "/admin/module-knowledge/{umk_id}",
+    response_model=UserModuleKnowledgeRead,
+    dependencies=[Depends(require_role("admin"))],
+    summary="Получить UserModuleKnowledge",
+)
+def admin_get_module_knowledge(umk_id: int, db: Session = Depends(get_db)):
+    umk = db.get(UserModuleKnowledgeModel, umk_id)
+    if not umk:
+        raise HTTPException(status_code=404, detail="UserModuleKnowledge not found")
+    return umk
+
+
+@router.post(
+    "/admin/module-knowledge",
+    response_model=UserModuleKnowledgeRead,
+    dependencies=[Depends(require_role("admin"))],
+    summary="Создать/обновить UserModuleKnowledge",
+)
+def admin_create_module_knowledge(payload: UserModuleKnowledgeCreate, db: Session = Depends(get_db)):
+    existing = (
+        db.query(UserModuleKnowledgeModel)
+        .filter(UserModuleKnowledgeModel.userId == payload.userId, UserModuleKnowledgeModel.moduleId == payload.moduleId)
+        .first()
+    )
+    if existing:
+        existing.knowledge = payload.knowledge
+        existing.lastUpdated = date.today()
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    umk = UserModuleKnowledgeModel()
+    umk.id = generate_unique_id(db, UserModuleKnowledgeModel)
+    umk.userId = payload.userId
+    umk.moduleId = payload.moduleId
+    umk.knowledge = payload.knowledge
+    umk.lastUpdated = date.today()
+    db.add(umk)
+    db.commit()
+    db.refresh(umk)
+    return umk
+
+
+@router.get(
+    "/me/courses/knowledge",
+    response_model=list[UserCourseKnowledgeRead],
+    summary="Уровень знаний по курсам (мои)",
+)
+def my_course_knowledge(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current.id)
+    return db.query(UserCourseKnowledgeModel).filter(UserCourseKnowledgeModel.userId == uid).all()
+
+
+@router.get(
+    "/admin/course-knowledge",
+    response_model=list[UserCourseKnowledgeRead],
+    dependencies=[Depends(require_role("admin"))],
+    summary="Список знаний по курсам",
+)
+def admin_list_course_knowledge(db: Session = Depends(get_db)):
+    return db.query(UserCourseKnowledgeModel).all()
+
+
+@router.get(
+    "/admin/course-knowledge/{uck_id}",
+    response_model=UserCourseKnowledgeRead,
+    dependencies=[Depends(require_role("admin"))],
+)
+def admin_get_course_knowledge(uck_id: int, db: Session = Depends(get_db)):
+    uck = db.get(UserCourseKnowledgeModel, uck_id)
+    if not uck:
+        raise HTTPException(status_code=404, detail="UserCourseKnowledge not found")
+    return uck
+
+
+@router.post(
+    "/admin/course-knowledge",
+    response_model=UserCourseKnowledgeRead,
+    dependencies=[Depends(require_role("admin"))],
+)
+def admin_create_course_knowledge(payload: UserCourseKnowledgeCreate, db: Session = Depends(get_db)):
+    existing = (
+        db.query(UserCourseKnowledgeModel)
+        .filter(UserCourseKnowledgeModel.userId == payload.userId, UserCourseKnowledgeModel.courseId == payload.courseId)
+        .first()
+    )
+    if existing:
+        existing.knowledge = payload.knowledge
+        existing.lastUpdated = date.today()
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    uck = UserCourseKnowledgeModel()
+    uck.id = generate_unique_id(db, UserCourseKnowledgeModel)
+    uck.userId = payload.userId
+    uck.courseId = payload.courseId
+    uck.knowledge = payload.knowledge
+    uck.lastUpdated = date.today()
+    db.add(uck)
+    db.commit()
+    db.refresh(uck)
+    return uck
+
+
+@router.get(
+    "/teacher/course/{course_id}/students/knowledge",
+    response_model=list[UserCourseKnowledgeRead],
+    dependencies=[Depends(require_role("teacher"))],
+    summary="Статусы знаний студентов по курсу (для преподавателя)",
+    description="Возвращает уровень знаний всех студентов по курсу. Доступно только автору курса (преподавателю).",
+)
+def teacher_list_students_course_knowledge(course_id: int, current=Depends(get_current_user), db: Session = Depends(get_db)):
+    # only the course author (teacher) or admin can view
+    course = db.get(CourseModel, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    uid = int(current.id)
+    # allow admin
+    if getattr(current, 'role', None) == 'admin':
+        return db.query(UserCourseKnowledgeModel).filter(UserCourseKnowledgeModel.courseId == course_id).all()
+    # check author
+    if int(course.authorId) != uid:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    # return knowledge for users enrolled in this course
+    enrollments = db.query(CourseEnrollmentModel).filter(CourseEnrollmentModel.courseId == course_id).all()
+    user_ids = [e.userId for e in enrollments]
+    if not user_ids:
+        return []
+    return db.query(UserCourseKnowledgeModel).filter(UserCourseKnowledgeModel.courseId == course_id, UserCourseKnowledgeModel.userId.in_(user_ids)).all()
+
+
+@router.get(
+    "/teacher/course/{course_id}/knowledge/{user_id}",
+    response_model=UserCourseKnowledgeRead,
+    dependencies=[Depends(require_role("teacher"))],
+    summary="Уровень знаний конкретного студента по курсу (для преподавателя)",
+)
+def teacher_get_student_course_knowledge(course_id: int, user_id: int, current=Depends(get_current_user), db: Session = Depends(get_db)):
+    course = db.get(CourseModel, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    uid = int(current.id)
+    if getattr(current, 'role', None) != 'admin' and int(course.authorId) != uid:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    uck = (
+        db.query(UserCourseKnowledgeModel)
+        .filter(UserCourseKnowledgeModel.courseId == course_id, UserCourseKnowledgeModel.userId == user_id)
+        .first()
+    )
+    if not uck:
+        raise HTTPException(status_code=404, detail="UserCourseKnowledge not found")
+    return uck
+
+
+@router.get(
+    "/teacher/module/{module_id}/knowledge/{user_id}",
+    response_model=UserModuleKnowledgeRead,
+    dependencies=[Depends(require_role("teacher"))],
+    summary="Уровень знаний студента по модулю (для преподавателя)",
+)
+def teacher_get_student_module_knowledge(module_id: int, user_id: int, current=Depends(get_current_user), db: Session = Depends(get_db)):
+    module = db.get(ModuleModel, module_id)
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    # verify teacher is author of parent course
+    course = db.get(CourseModel, module.courseId) if module and module.courseId else None
+    uid = int(current.id)
+    if getattr(current, 'role', None) != 'admin' and (not course or int(course.authorId) != uid):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    umk = (
+        db.query(UserModuleKnowledgeModel)
+        .filter(UserModuleKnowledgeModel.moduleId == module_id, UserModuleKnowledgeModel.userId == user_id)
+        .first()
+    )
+    if not umk:
+        raise HTTPException(status_code=404, detail="UserModuleKnowledge not found")
+    return umk

@@ -1,5 +1,6 @@
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, BigInteger, Boolean, Text, Date, ForeignKey, Integer
+from sqlalchemy import Float
 
 Base = declarative_base()
 
@@ -82,7 +83,8 @@ class Question(Base):
     picture = Column(Text)
     complexityPoints = Column(BigInteger, nullable=False)
     testId = Column(BigInteger, ForeignKey('Test.id'))
-
+    questionType = Column(Text, nullable=False, default='test')
+    topicId = Column(BigInteger, ForeignKey('Topic.id'), nullable=True)
 
 class Answer(Base):
     __tablename__ = 'Answer'
@@ -100,6 +102,31 @@ class TestResult(Base):
     result = Column(BigInteger, nullable=False)
     testId = Column(BigInteger, ForeignKey('Test.id'))
     userId = Column(BigInteger, ForeignKey('User.id'))
+
+class UserAnswer(Base):
+    __tablename__ = 'UserAnswer'
+    id = Column(BigInteger, primary_key=True)
+    userId = Column(BigInteger, ForeignKey('User.id'), nullable=False)
+    testResultId = Column(BigInteger, ForeignKey('TestResult.id'), nullable=False)
+    questionId = Column(BigInteger, ForeignKey('Question.id'), nullable=False)
+    isCorrect = Column(Boolean, nullable=False)
+    timeSpentInMinutes = Column(BigInteger)
+
+class UserModuleKnowledge(Base):
+    __tablename__ = 'UserModuleKnowledge'
+    id = Column(BigInteger, primary_key=True)
+    userId = Column(BigInteger, ForeignKey('User.id'), nullable=False)
+    moduleId = Column(BigInteger, ForeignKey('Module.id'), nullable=False)
+    knowledge = Column(Float, nullable=False, default=0.0)
+    lastUpdated = Column(Date)
+
+class UserCourseKnowledge(Base):
+    __tablename__ = 'UserCourseKnowledge'
+    id = Column(BigInteger, primary_key=True)
+    userId = Column(BigInteger, ForeignKey('User.id'), nullable=False)
+    courseId = Column(BigInteger, ForeignKey('Course.id'), nullable=False)
+    knowledge = Column(Float, nullable=False, default=0.0)
+    lastUpdated = Column(Date)
 
 class Role(Base):
     __tablename__ = 'Roles'

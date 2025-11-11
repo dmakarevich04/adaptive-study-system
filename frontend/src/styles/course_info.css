@@ -1,0 +1,65 @@
+.course-info-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto; /* Центрирует весь блок на странице, ок */
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+/* Хедер курса: картинка слева, информация справа */
+.course-header {
+  display: flex;
+  flex-direction: row; /* по горизонтали */
+  gap: 30px;
+  align-items: flex-start; /* верхний край выровнен */
+  justify-content: flex-start; /* главное: контент слева */
+  margin-bottom: 50px;
+}
+
+/* Картинка курса */
+.course-cover {
+  width: 400px;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+}
+
+/* Блок информации справа */
+.course-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* занимает оставшееся место справа */
+  justify-content: flex-start;
+  text-align: left; /* важный момент: информация слева */
+  margin: 0; /* убрать любые авто-отступы */
+}
+
+/* Название курса */
+.course-meta h1 {
+  font-size: 36px;
+  margin: 0 0 15px 0;
+}
+
+/* Категория */
+.course-category {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  color: #ff9800;
+}
+
+/* Описание */
+.course-description h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.course-description p {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 0;
+}

@@ -22,6 +22,7 @@ class CourseCreate(BaseModel):
     description: str
     categoryId: Optional[int]
     authorId: Optional[int]
+    picture: Optional[str]
 
 class CourseRead(BaseModel):
     id: int
@@ -29,6 +30,7 @@ class CourseRead(BaseModel):
     description: str
     categoryId: Optional[int]
     authorId: Optional[int]
+    picture: Optional[str]
     isPublished: bool
 
     model_config = ConfigDict(from_attributes=True)

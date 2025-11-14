@@ -1,4 +1,6 @@
 import os
+import uuid
+import shutil
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -39,6 +41,8 @@ from .utils import generate_unique_id
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+COURSE_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "courses")
+os.makedirs(COURSE_UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/full", tags=["teaching"])
 
@@ -303,6 +307,134 @@ def delete_module(
     db.delete(module)
     db.commit()
     return {"ok": True}
+
+
+@router.post(
+    "/courses/{course_id}/picture",
+    response_model=CourseOut,
+    summary="Загрузить картинку курса",
+    description="Загружает изображение для курса (только автор курса).",
+)
+def upload_course_picture(
+    course_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    course = db.get(CourseModel, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    # Allow course author (teacher) or admin
+    if not (getattr(current, "role", None) == "admin" or int(current.id) == int(course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can upload picture")
+    if not file or not getattr(file, "filename", None):
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # generate unique filename preserving extension
+    _, ext = os.path.splitext(file.filename)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(COURSE_UPLOAD_DIR, filename)
+    try:
+        with open(dest_path, "wb") as out_f:
+            shutil.copyfileobj(file.file, out_f)
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
+
+    # remove old picture file if present
+    try:
+        if course.picture:
+            old_path = course.picture
+            # stored paths are like '/uploads/courses/<name>' or absolute; try to resolve
+            if old_path.startswith("/uploads/"):
+                old_full = os.path.join(os.path.dirname(__file__), "..", old_path.lstrip("/"))
+            else:
+                old_full = old_path
+            if os.path.exists(old_full):
+                os.remove(old_full)
+    except Exception:
+        pass
+
+    # store a web-friendly path
+    course.picture = f"/uploads/courses/{filename}"
+    db.add(course)
+    db.commit()
+    db.refresh(course)
+    return course
+
+
+@router.delete(
+    "/courses/{course_id}/picture",
+    summary="Удалить картинку курса",
+    description="Удаляет картинку курса (только автор курса).",
+)
+def delete_course_picture(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    course = db.get(CourseModel, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    # Allow course author (teacher) or admin
+    if not (getattr(current, "role", None) == "admin" or int(current.id) == int(course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can delete picture")
+    if not course.picture:
+        return {"ok": True}
+    try:
+        if course.picture.startswith("/uploads/"):
+            full = os.path.join(os.path.dirname(__file__), "..", course.picture.lstrip("/"))
+        else:
+            full = course.picture
+        if os.path.exists(full):
+            os.remove(full)
+    except Exception:
+        pass
+    course.picture = None
+    db.add(course)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get(
+    "/uploads/courses/{filename}",
+    summary="Отдать картинку курса",
+    description="Возвращает файл картинки курса по имени.",
+)
+def serve_course_picture(filename: str):
+    full = os.path.join(COURSE_UPLOAD_DIR, filename)
+    if not os.path.exists(full):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(full, filename=filename)
+
+
+@router.get(
+    "/courses/{course_id}/picture",
+    summary="Получить картинку курса по id",
+    description="Возвращает файл картинки, привязанной к курсу (по id курса).",
+)
+def get_course_picture(course_id: int, db: Session = Depends(get_db)):
+    course = db.get(CourseModel, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if not course.picture:
+        raise HTTPException(status_code=404, detail="Course has no picture")
+    # resolve stored path to filesystem
+    try:
+        if course.picture.startswith("/uploads/"):
+            full = os.path.join(os.path.dirname(__file__), "..", course.picture.lstrip("/"))
+        else:
+            full = course.picture
+        if not os.path.exists(full):
+            raise HTTPException(status_code=404, detail="File not found")
+        filename = os.path.basename(full)
+        return FileResponse(full, filename=filename)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error serving file")
 
 @router.post(
     "/topics",

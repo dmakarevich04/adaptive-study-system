@@ -43,6 +43,8 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 COURSE_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "courses")
 os.makedirs(COURSE_UPLOAD_DIR, exist_ok=True)
+TOPIC_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "topics")
+os.makedirs(TOPIC_UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/full", tags=["teaching"])
 
@@ -728,13 +730,71 @@ def delete_topic_content(
     if course and int(current.id) != int(course.authorId):
         raise HTTPException(status_code=403, detail="Only author can delete content")
     try:
-        if topic_content.file and os.path.exists(topic_content.file):
-            os.remove(topic_content.file)
+        if topic_content.file:
+            # topic content stores filesystem path; remove if exists
+            try:
+                if os.path.exists(topic_content.file):
+                    os.remove(topic_content.file)
+            except Exception:
+                pass
     except Exception:
         pass
     db.delete(topic_content)
     db.commit()
     return {"ok": True}
+
+
+@router.post(
+    "/topic-contents",
+    response_model=TopicContentRead,
+    summary="Создать материал темы (загрузка файла)",
+    description="Загружает файл материала и создаёт запись TopicContent. Только автор курса.",
+)
+def create_topic_content(
+    topicId: int,
+    description: str | None = None,
+    file: UploadFile | None = None,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    # validate topic
+    topic = db.get(TopicModel, topicId)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    module = db.get(ModuleModel, topic.moduleId)
+    course = db.get(CourseModel, module.courseId) if module else None
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    # allow course author or admin
+    if not (getattr(current, "role", None) == "admin" or int(current.id) == int(course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can create content for this topic")
+
+    if not file or not getattr(file, "filename", None):
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    # save file
+    _, ext = os.path.splitext(file.filename)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(TOPIC_UPLOAD_DIR, filename)
+    try:
+        with open(dest_path, "wb") as out_f:
+            shutil.copyfileobj(file.file, out_f)
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
+
+    # create DB record; store filesystem path (used by download/delete endpoints)
+    tc = TopicContentModel()
+    tc.id = generate_unique_id(db, TopicContentModel)
+    tc.description = description or ""
+    tc.file = dest_path
+    tc.topicId = topicId
+    db.add(tc)
+    db.commit()
+    db.refresh(tc)
+    return tc
 
 @router.get(
     "/topics/{topic_id}/contents",

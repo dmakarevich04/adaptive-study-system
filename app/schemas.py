@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, Literal
 from datetime import date
 
 class UserCreate(BaseModel):
@@ -82,7 +82,8 @@ class QuestionCreate(BaseModel):
     text: str
     complexityPoints: int
     testId: int
-    questionType: Optional[str] = 'test'
+    questionType: Optional[Literal['test', 'open']] = 'test'
+    picture: Optional[str] = None
     topicId: Optional[int] = None
 
 

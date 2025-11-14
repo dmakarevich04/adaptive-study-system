@@ -45,6 +45,8 @@ COURSE_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "courses")
 os.makedirs(COURSE_UPLOAD_DIR, exist_ok=True)
 TOPIC_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "topics")
 os.makedirs(TOPIC_UPLOAD_DIR, exist_ok=True)
+QUESTIONS_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "questions")
+os.makedirs(QUESTIONS_UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(prefix="/full", tags=["teaching"])
 
@@ -413,6 +415,18 @@ def serve_course_picture(filename: str):
 
 
 @router.get(
+    "/uploads/questions/{filename}",
+    summary="Отдать картинку вопроса по имени",
+    description="Возвращает файл картинки вопроса по имени.",
+)
+def serve_question_file(filename: str):
+    full = os.path.join(QUESTIONS_UPLOAD_DIR, filename)
+    if not os.path.exists(full):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(full, filename=filename)
+
+
+@router.get(
     "/courses/{course_id}/picture",
     summary="Получить картинку курса по id",
     description="Возвращает файл картинки, привязанной к курсу (по id курса).",
@@ -429,6 +443,134 @@ def get_course_picture(course_id: int, db: Session = Depends(get_db)):
             full = os.path.join(os.path.dirname(__file__), "..", course.picture.lstrip("/"))
         else:
             full = course.picture
+        if not os.path.exists(full):
+            raise HTTPException(status_code=404, detail="File not found")
+        filename = os.path.basename(full)
+        return FileResponse(full, filename=filename)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error serving file")
+
+
+@router.post(
+    "/questions/{question_id}/picture",
+    response_model=QuestionRead,
+    summary="Загрузить картинку для вопроса",
+    description="Загружает файл изображения для вопроса (author или admin).",
+)
+def upload_question_picture(
+    question_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    question = db.get(QuestionModel, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    test = db.get(TestModel, question.testId)
+    course_obj = None
+    if test:
+        if test.courseId:
+            course_obj = db.get(CourseModel, test.courseId)
+        elif test.moduleId:
+            module = db.get(ModuleModel, test.moduleId)
+            course_obj = db.get(CourseModel, module.courseId) if module else None
+    # allow author or admin
+    if course_obj and not (getattr(current, "role", None) == "admin" or int(current.id) == int(course_obj.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can upload question picture")
+    if not file or not getattr(file, "filename", None):
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    _, ext = os.path.splitext(file.filename)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(QUESTIONS_UPLOAD_DIR, filename)
+    try:
+        with open(dest_path, "wb") as out_f:
+            shutil.copyfileobj(file.file, out_f)
+    finally:
+        try:
+            file.file.close()
+        except Exception:
+            pass
+
+    # remove old file if present
+    try:
+        if question.picture:
+            old_path = question.picture
+            if old_path.startswith("/uploads/"):
+                old_full = os.path.join(os.path.dirname(__file__), "..", old_path.lstrip("/"))
+            else:
+                old_full = old_path
+            if os.path.exists(old_full):
+                os.remove(old_full)
+    except Exception:
+        pass
+
+    question.picture = f"/uploads/questions/{filename}"
+    db.add(question)
+    db.commit()
+    db.refresh(question)
+    return question
+
+
+@router.delete(
+    "/questions/{question_id}/picture",
+    summary="Удалить картинку вопроса",
+    description="Удаляет картинку вопроса (author или admin).",
+)
+def delete_question_picture(
+    question_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    question = db.get(QuestionModel, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    test = db.get(TestModel, question.testId)
+    course_obj = None
+    if test:
+        if test.courseId:
+            course_obj = db.get(CourseModel, test.courseId)
+        elif test.moduleId:
+            module = db.get(ModuleModel, test.moduleId)
+            course_obj = db.get(CourseModel, module.courseId) if module else None
+    # allow author or admin
+    if course_obj and not (getattr(current, "role", None) == "admin" or int(current.id) == int(course_obj.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can delete question picture")
+    if not question.picture:
+        return {"ok": True}
+    try:
+        if question.picture.startswith("/uploads/"):
+            full = os.path.join(os.path.dirname(__file__), "..", question.picture.lstrip("/"))
+        else:
+            full = question.picture
+        if os.path.exists(full):
+            os.remove(full)
+    except Exception:
+        pass
+    question.picture = None
+    db.add(question)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get(
+    "/questions/{question_id}/picture",
+    summary="Получить картинку вопроса по id",
+    description="Возвращает картинку, привязанную к вопросу.",
+)
+def get_question_picture(question_id: int, db: Session = Depends(get_db)):
+    question = db.get(QuestionModel, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    if not question.picture:
+        raise HTTPException(status_code=404, detail="Question has no picture")
+    try:
+        if question.picture.startswith("/uploads/"):
+            full = os.path.join(os.path.dirname(__file__), "..", question.picture.lstrip("/"))
+        else:
+            full = question.picture
         if not os.path.exists(full):
             raise HTTPException(status_code=404, detail="File not found")
         filename = os.path.basename(full)
@@ -1048,7 +1190,7 @@ def list_questions(test_id: int, db: Session = Depends(get_db)):
 def create_question(
     payload: QuestionIn,
     db: Session = Depends(get_db),
-    current=Depends(require_role("teacher")),
+    current=Depends(get_current_user),
 ):
     test = db.get(TestModel, payload.testId)
     if not test:
@@ -1059,13 +1201,26 @@ def create_question(
     elif test.moduleId:
         module = db.get(ModuleModel, test.moduleId)
         owner_course = db.get(CourseModel, module.courseId)
-    if owner_course and int(current.id) != int(owner_course.authorId):
-        raise HTTPException(status_code=403, detail="Only author can add questions")
+    # allow course author or admin
+    if owner_course and not (getattr(current, "role", None) == "admin" or int(current.id) == int(owner_course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can add questions")
     question = QuestionModel()
     question.id = generate_unique_id(db, QuestionModel)
     question.text = payload.text
     question.complexityPoints = payload.complexityPoints
     question.testId = payload.testId
+    # set topic if provided
+    if getattr(payload, 'topicId', None) is not None:
+        question.topicId = payload.topicId
+    # optional fields
+    try:
+        question.questionType = payload.questionType
+    except Exception:
+        question.questionType = 'test'
+    try:
+        question.picture = payload.picture
+    except Exception:
+        question.picture = None
     db.add(question)
     db.commit()
     db.refresh(question)
@@ -1074,7 +1229,6 @@ def create_question(
 @router.put(
     "/questions/{question_id}",
     response_model=QuestionRead,
-    dependencies=[Depends(require_role("teacher"))],
     summary="Обновить вопрос",
     description="Редактирует текст и сложность вопроса. Доступно только автору курса.",
 )
@@ -1095,10 +1249,19 @@ def update_question(
         elif test.moduleId:
             module = db.get(ModuleModel, test.moduleId)
             owner_course = db.get(CourseModel, module.courseId) if module else None
-    if owner_course and int(current.id) != int(owner_course.authorId):
-        raise HTTPException(status_code=403, detail="Only author can modify question")
+    # allow course author or admin
+    if owner_course and not (getattr(current, "role", None) == "admin" or int(current.id) == int(owner_course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can modify question")
     question.text = payload.text
     question.complexityPoints = payload.complexityPoints
+    # allow updating questionType and picture
+    if hasattr(payload, 'questionType'):
+        question.questionType = payload.questionType
+    if hasattr(payload, 'picture'):
+        question.picture = payload.picture
+    # allow updating topicId (may be None)
+    if hasattr(payload, 'topicId'):
+        question.topicId = payload.topicId
     db.add(question)
     db.commit()
     db.refresh(question)
@@ -1106,7 +1269,6 @@ def update_question(
 
 @router.delete(
     "/questions/{question_id}",
-    dependencies=[Depends(require_role("teacher"))],
     summary="Удалить вопрос",
     description="Удаляет вопрос теста. Доступно только автору курса.",
 )
@@ -1126,8 +1288,9 @@ def delete_question(
         elif test.moduleId:
             module = db.get(ModuleModel, test.moduleId)
             owner_course = db.get(CourseModel, module.courseId) if module else None
-    if owner_course and int(current.id) != int(owner_course.authorId):
-        raise HTTPException(status_code=403, detail="Only author can delete question")
+    # allow course author or admin
+    if owner_course and not (getattr(current, "role", None) == "admin" or int(current.id) == int(owner_course.authorId)):
+        raise HTTPException(status_code=403, detail="Only author or admin can delete question")
     db.delete(question)
     db.commit()
     return {"ok": True}

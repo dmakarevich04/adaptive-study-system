@@ -8,7 +8,7 @@ from .auth import get_password_hash, verify_password, create_access_token
 from .models import User as UserModelDecl, Role as RoleModel
 from .models import Course as CourseModel, CourseEnrollment as CourseEnrollmentModel
 from .utils import generate_unique_id
-from .schemas import UserCreate, UserRead, CourseRead
+from .schemas import UserCreate, UserRead, CourseRead, CourseEnrollmentRead
 from .deps import get_current_user, require_role
 
 router = APIRouter(prefix='/users', tags=['users'])
@@ -134,6 +134,18 @@ def my_enrolled_courses(current=Depends(get_current_user), db: Session = Depends
         .all()
     )
     return courses
+
+
+@router.get(
+    '/me/enrollments',
+    response_model=list[CourseEnrollmentRead],
+    summary='Список записей на курсы текущего пользователя',
+    description='Возвращает список CourseEnrollment для текущего пользователя (даты начала/окончания).',
+)
+def my_enrollments(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current.id)
+    enrollments = db.query(CourseEnrollmentModel).filter(CourseEnrollmentModel.userId == uid).all()
+    return enrollments
 
 @router.get(
     '/me/courses/teaching',

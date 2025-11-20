@@ -27,11 +27,12 @@ class CourseRead {
      * @param description {String} 
      * @param categoryId {Number} 
      * @param authorId {Number} 
+     * @param picture {String} 
      * @param isPublished {Boolean} 
      */
-    constructor(id, name, description, categoryId, authorId, isPublished) { 
+    constructor(id, name, description, categoryId, authorId, picture, isPublished) { 
         
-        CourseRead.initialize(this, id, name, description, categoryId, authorId, isPublished);
+        CourseRead.initialize(this, id, name, description, categoryId, authorId, picture, isPublished);
     }
 
     /**
@@ -39,12 +40,13 @@ class CourseRead {
      * This method is used by the constructors of any subclasses, in order to implement multiple inheritance (mix-ins).
      * Only for internal use.
      */
-    static initialize(obj, id, name, description, categoryId, authorId, isPublished) { 
+    static initialize(obj, id, name, description, categoryId, authorId, picture, isPublished) { 
         obj['id'] = id;
         obj['name'] = name;
         obj['description'] = description;
         obj['categoryId'] = categoryId;
         obj['authorId'] = authorId;
+        obj['picture'] = picture;
         obj['isPublished'] = isPublished;
     }
 
@@ -74,6 +76,9 @@ class CourseRead {
             if (data.hasOwnProperty('authorId')) {
                 obj['authorId'] = ApiClient.convertToType(data['authorId'], 'Number');
             }
+            if (data.hasOwnProperty('picture')) {
+                obj['picture'] = ApiClient.convertToType(data['picture'], 'String');
+            }
             if (data.hasOwnProperty('isPublished')) {
                 obj['isPublished'] = ApiClient.convertToType(data['isPublished'], 'Boolean');
             }
@@ -101,14 +106,109 @@ class CourseRead {
         if (data['description'] && !(typeof data['description'] === 'string' || data['description'] instanceof String)) {
             throw new Error("Expected the field `description` to be a primitive type in the JSON string but got " + data['description']);
         }
+        // ensure the json data is a string
+        if (data['picture'] && !(typeof data['picture'] === 'string' || data['picture'] instanceof String)) {
+            throw new Error("Expected the field `picture` to be a primitive type in the JSON string but got " + data['picture']);
+        }
 
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getDescription() {
+        return this.description;
+    }
+
+    /**
+     * @param {String} description
+     */
+    setDescription(description) {
+        this['description'] = description;
+    }
+/**
+     * @return {Number}
+     */
+    getCategoryId() {
+        return this.categoryId;
+    }
+
+    /**
+     * @param {Number} categoryId
+     */
+    setCategoryId(categoryId) {
+        this['categoryId'] = categoryId;
+    }
+/**
+     * @return {Number}
+     */
+    getAuthorId() {
+        return this.authorId;
+    }
+
+    /**
+     * @param {Number} authorId
+     */
+    setAuthorId(authorId) {
+        this['authorId'] = authorId;
+    }
+/**
+     * @return {String}
+     */
+    getPicture() {
+        return this.picture;
+    }
+
+    /**
+     * @param {String} picture
+     */
+    setPicture(picture) {
+        this['picture'] = picture;
+    }
+/**
+     * @return {Boolean}
+     */
+    getIsPublished() {
+        return this.isPublished;
+    }
+
+    /**
+     * @param {Boolean} isPublished
+     */
+    setIsPublished(isPublished) {
+        this['isPublished'] = isPublished;
+    }
 
 }
 
-CourseRead.RequiredProperties = ["id", "name", "description", "categoryId", "authorId", "isPublished"];
+CourseRead.RequiredProperties = ["id", "name", "description", "categoryId", "authorId", "picture", "isPublished"];
 
 /**
  * @member {Number} id
@@ -134,6 +234,11 @@ CourseRead.prototype['categoryId'] = undefined;
  * @member {Number} authorId
  */
 CourseRead.prototype['authorId'] = undefined;
+
+/**
+ * @member {String} picture
+ */
+CourseRead.prototype['picture'] = undefined;
 
 /**
  * @member {Boolean} isPublished

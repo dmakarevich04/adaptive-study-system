@@ -76,6 +76,19 @@ class RoleCreate {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
 
 }
 

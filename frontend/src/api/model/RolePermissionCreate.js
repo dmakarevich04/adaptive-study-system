@@ -77,6 +77,32 @@ class RolePermissionCreate {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getRoleId() {
+        return this.roleId;
+    }
+
+    /**
+     * @param {Number} roleId
+     */
+    setRoleId(roleId) {
+        this['roleId'] = roleId;
+    }
+/**
+     * @return {Number}
+     */
+    getPermissionId() {
+        return this.permissionId;
+    }
+
+    /**
+     * @param {Number} permissionId
+     */
+    setPermissionId(permissionId) {
+        this['permissionId'] = permissionId;
+    }
 
 }
 

@@ -95,6 +95,58 @@ class TopicRead {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getDescription() {
+        return this.description;
+    }
+
+    /**
+     * @param {String} description
+     */
+    setDescription(description) {
+        this['description'] = description;
+    }
+/**
+     * @return {Number}
+     */
+    getModuleId() {
+        return this.moduleId;
+    }
+
+    /**
+     * @param {Number} moduleId
+     */
+    setModuleId(moduleId) {
+        this['moduleId'] = moduleId;
+    }
 
 }
 

@@ -84,6 +84,32 @@ class TokenOut {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getAccessToken() {
+        return this.access_token;
+    }
+
+    /**
+     * @param {String} accessToken
+     */
+    setAccessToken(accessToken) {
+        this['access_token'] = accessToken;
+    }
+/**
+     * @return {String}
+     */
+    getTokenType() {
+        return this.token_type;
+    }
+
+    /**
+     * @param {String} tokenType
+     */
+    setTokenType(tokenType) {
+        this['token_type'] = tokenType;
+    }
 
 }
 

@@ -102,6 +102,97 @@ class TestResultRead {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {Number}
+     */
+    getScoreInPoints() {
+        return this.scoreInPoints;
+    }
+
+    /**
+     * @param {Number} scoreInPoints
+     */
+    setScoreInPoints(scoreInPoints) {
+        this['scoreInPoints'] = scoreInPoints;
+    }
+/**
+     * @return {Boolean}
+     */
+    getIsPassed() {
+        return this.isPassed;
+    }
+
+    /**
+     * @param {Boolean} isPassed
+     */
+    setIsPassed(isPassed) {
+        this['isPassed'] = isPassed;
+    }
+/**
+     * @return {Number}
+     */
+    getDurationInMinutes() {
+        return this.durationInMinutes;
+    }
+
+    /**
+     * @param {Number} durationInMinutes
+     */
+    setDurationInMinutes(durationInMinutes) {
+        this['durationInMinutes'] = durationInMinutes;
+    }
+/**
+     * @return {Number}
+     */
+    getResult() {
+        return this.result;
+    }
+
+    /**
+     * @param {Number} result
+     */
+    setResult(result) {
+        this['result'] = result;
+    }
+/**
+     * @return {Number}
+     */
+    getTestId() {
+        return this.testId;
+    }
+
+    /**
+     * @param {Number} testId
+     */
+    setTestId(testId) {
+        this['testId'] = testId;
+    }
+/**
+     * @return {Number}
+     */
+    getUserId() {
+        return this.userId;
+    }
+
+    /**
+     * @param {Number} userId
+     */
+    setUserId(userId) {
+        this['userId'] = userId;
+    }
 
 }
 

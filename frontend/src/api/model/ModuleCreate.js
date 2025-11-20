@@ -90,6 +90,45 @@ class ModuleCreate {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getDescription() {
+        return this.description;
+    }
+
+    /**
+     * @param {String} description
+     */
+    setDescription(description) {
+        this['description'] = description;
+    }
+/**
+     * @return {Number}
+     */
+    getCourseId() {
+        return this.courseId;
+    }
+
+    /**
+     * @param {Number} courseId
+     */
+    setCourseId(courseId) {
+        this['courseId'] = courseId;
+    }
 
 }
 

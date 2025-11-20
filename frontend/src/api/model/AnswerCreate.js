@@ -86,6 +86,45 @@ class AnswerCreate {
         return true;
     }
 
+/**
+     * @return {Boolean}
+     */
+    getIsCorrect() {
+        return this.isCorrect;
+    }
+
+    /**
+     * @param {Boolean} isCorrect
+     */
+    setIsCorrect(isCorrect) {
+        this['isCorrect'] = isCorrect;
+    }
+/**
+     * @return {String}
+     */
+    getText() {
+        return this.text;
+    }
+
+    /**
+     * @param {String} text
+     */
+    setText(text) {
+        this['text'] = text;
+    }
+/**
+     * @return {Number}
+     */
+    getQuestionId() {
+        return this.questionId;
+    }
+
+    /**
+     * @param {Number} questionId
+     */
+    setQuestionId(questionId) {
+        this['questionId'] = questionId;
+    }
 
 }
 

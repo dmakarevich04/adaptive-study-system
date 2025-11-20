@@ -103,6 +103,58 @@ class UserCreate {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getLogin() {
+        return this.login;
+    }
+
+    /**
+     * @param {String} login
+     */
+    setLogin(login) {
+        this['login'] = login;
+    }
+/**
+     * @return {String}
+     */
+    getPassword() {
+        return this.password;
+    }
+
+    /**
+     * @param {String} password
+     */
+    setPassword(password) {
+        this['password'] = password;
+    }
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getSurname() {
+        return this.surname;
+    }
+
+    /**
+     * @param {String} surname
+     */
+    setSurname(surname) {
+        this['surname'] = surname;
+    }
 
 }
 

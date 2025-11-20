@@ -62,6 +62,15 @@ class QuestionCreate {
             if (data.hasOwnProperty('testId')) {
                 obj['testId'] = ApiClient.convertToType(data['testId'], 'Number');
             }
+            if (data.hasOwnProperty('questionType')) {
+                obj['questionType'] = ApiClient.convertToType(data['questionType'], 'String');
+            }
+            if (data.hasOwnProperty('picture')) {
+                obj['picture'] = ApiClient.convertToType(data['picture'], 'String');
+            }
+            if (data.hasOwnProperty('topicId')) {
+                obj['topicId'] = ApiClient.convertToType(data['topicId'], 'Number');
+            }
         }
         return obj;
     }
@@ -82,10 +91,96 @@ class QuestionCreate {
         if (data['text'] && !(typeof data['text'] === 'string' || data['text'] instanceof String)) {
             throw new Error("Expected the field `text` to be a primitive type in the JSON string but got " + data['text']);
         }
+        // ensure the json data is a string
+        if (data['questionType'] && !(typeof data['questionType'] === 'string' || data['questionType'] instanceof String)) {
+            throw new Error("Expected the field `questionType` to be a primitive type in the JSON string but got " + data['questionType']);
+        }
+        // ensure the json data is a string
+        if (data['picture'] && !(typeof data['picture'] === 'string' || data['picture'] instanceof String)) {
+            throw new Error("Expected the field `picture` to be a primitive type in the JSON string but got " + data['picture']);
+        }
 
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getText() {
+        return this.text;
+    }
+
+    /**
+     * @param {String} text
+     */
+    setText(text) {
+        this['text'] = text;
+    }
+/**
+     * @return {Number}
+     */
+    getComplexityPoints() {
+        return this.complexityPoints;
+    }
+
+    /**
+     * @param {Number} complexityPoints
+     */
+    setComplexityPoints(complexityPoints) {
+        this['complexityPoints'] = complexityPoints;
+    }
+/**
+     * @return {Number}
+     */
+    getTestId() {
+        return this.testId;
+    }
+
+    /**
+     * @param {Number} testId
+     */
+    setTestId(testId) {
+        this['testId'] = testId;
+    }
+/**
+     * @return {module:model/QuestionCreate.QuestionTypeEnum}
+     */
+    getQuestionType() {
+        return this.questionType;
+    }
+
+    /**
+     * @param {module:model/QuestionCreate.QuestionTypeEnum} questionType
+     */
+    setQuestionType(questionType) {
+        this['questionType'] = questionType;
+    }
+/**
+     * @return {String}
+     */
+    getPicture() {
+        return this.picture;
+    }
+
+    /**
+     * @param {String} picture
+     */
+    setPicture(picture) {
+        this['picture'] = picture;
+    }
+/**
+     * @return {Number}
+     */
+    getTopicId() {
+        return this.topicId;
+    }
+
+    /**
+     * @param {Number} topicId
+     */
+    setTopicId(topicId) {
+        this['topicId'] = topicId;
+    }
 
 }
 
@@ -106,8 +201,44 @@ QuestionCreate.prototype['complexityPoints'] = undefined;
  */
 QuestionCreate.prototype['testId'] = undefined;
 
+/**
+ * @member {module:model/QuestionCreate.QuestionTypeEnum} questionType
+ */
+QuestionCreate.prototype['questionType'] = undefined;
+
+/**
+ * @member {String} picture
+ */
+QuestionCreate.prototype['picture'] = undefined;
+
+/**
+ * @member {Number} topicId
+ */
+QuestionCreate.prototype['topicId'] = undefined;
 
 
+
+
+
+/**
+ * Allowed values for the <code>questionType</code> property.
+ * @enum {String}
+ * @readonly
+ */
+QuestionCreate['QuestionTypeEnum'] = {
+
+    /**
+     * value: "test"
+     * @const
+     */
+    "test": "test",
+
+    /**
+     * value: "open"
+     * @const
+     */
+    "open": "open"
+};
 
 
 

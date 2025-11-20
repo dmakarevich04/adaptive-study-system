@@ -76,6 +76,19 @@ class PermissionCreate {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getAction() {
+        return this.action;
+    }
+
+    /**
+     * @param {String} action
+     */
+    setAction(action) {
+        this['action'] = action;
+    }
 
 }
 

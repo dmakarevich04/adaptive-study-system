@@ -96,6 +96,71 @@ class TestCreate {
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getDescription() {
+        return this.description;
+    }
+
+    /**
+     * @param {String} description
+     */
+    setDescription(description) {
+        this['description'] = description;
+    }
+/**
+     * @return {Number}
+     */
+    getDurationInMinutes() {
+        return this.durationInMinutes;
+    }
+
+    /**
+     * @param {Number} durationInMinutes
+     */
+    setDurationInMinutes(durationInMinutes) {
+        this['durationInMinutes'] = durationInMinutes;
+    }
+/**
+     * @return {Number}
+     */
+    getModuleId() {
+        return this.moduleId;
+    }
+
+    /**
+     * @param {Number} moduleId
+     */
+    setModuleId(moduleId) {
+        this['moduleId'] = moduleId;
+    }
+/**
+     * @return {Number}
+     */
+    getCourseId() {
+        return this.courseId;
+    }
+
+    /**
+     * @param {Number} courseId
+     */
+    setCourseId(courseId) {
+        this['courseId'] = courseId;
+    }
 
 }
 

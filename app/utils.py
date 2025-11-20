@@ -34,12 +34,15 @@ def generate_unique_id(db_session, model_cls) -> int:
         attempts += 1
         # Try a reasonable number of times before giving up.
         if attempts > 5:
-            raise RuntimeError("Unable to generate unique id after multiple attempts")
+            raise RuntimeError(
+                "Unable to generate unique id after multiple attempts")
         new_id = generate_random_id()
     return new_id
 
+
 def difficulty_factor_for_type(qtype: Optional[str]) -> float:
     return DIFFICULTY_FACTOR_BY_TYPE.get((qtype or 'test').lower(), 1.0)
+
 
 def compute_test_score(db, test_id: int, test_result_id: int) -> float:
     # load test and result
@@ -56,50 +59,55 @@ def compute_test_score(db, test_id: int, test_result_id: int) -> float:
     else:
         time_factor = min(1.0, expected / actual)
 
-    # gather user answers for this test result
-    ua_rows = db.query(UserAnswerModel).filter(UserAnswerModel.testResultId == test_result_id).all()
-    if ua_rows:
-        # fetch question info
-        total_weight = 0.0
-        correct_weight_sum = 0.0
-        # collect difficulty factor numerator (weighted)
-        diff_factor_numer = 0.0
-        for ua in ua_rows:
-            q = db.get(QuestionModel, ua.questionId)
-            q_weight = float(getattr(q, 'complexityPoints', 1) or 1)
-            total_weight += q_weight
-            if ua.isCorrect:
-                correct_weight_sum += q_weight
-            diff_factor_numer += q_weight * difficulty_factor_for_type(getattr(q, 'questionType', None))
-
-        if total_weight <= 0:
-            return 0.0
-        base = (correct_weight_sum / total_weight)
-        avg_diff_factor = diff_factor_numer / total_weight
-        test_score = base * avg_diff_factor * time_factor * 100.0
-        return float(max(0.0, min(100.0, test_score)))
-
-    # compute difficulty avg across questions in test
-    qs = db.query(QuestionModel).filter(QuestionModel.testId == test_id).all()
-    if not qs:
+    # Получаем ВСЕ вопросы теста, а не только те, на которые есть ответы
+    all_questions = db.query(QuestionModel).filter(
+        QuestionModel.testId == test_id).all()
+    if not all_questions:
         return float(max(0.0, min(100.0, float(getattr(result, 'result', 0)))))
-    total_weight = 0.0
-    diff_factor_numer = 0.0
-    for q in qs:
-        w = float(getattr(q, 'complexityPoints', 1) or 1)
-        total_weight += w
-        diff_factor_numer += w * difficulty_factor_for_type(getattr(q, 'questionType', None))
-    avg_diff_factor = diff_factor_numer / total_weight if total_weight > 0 else 1.0
 
-    base_percent = float(getattr(result, 'result', 0)) / 100.0
-    test_score = base_percent * avg_diff_factor * time_factor * 100.0
+    # Создаем словарь ответов пользователя для быстрого доступа
+    ua_rows = db.query(UserAnswerModel).filter(
+        UserAnswerModel.testResultId == test_result_id).all()
+    user_answers_dict = {ua.questionId: ua for ua in ua_rows}
+
+    # Считаем по ВСЕМ вопросам теста
+    total_weight = 0.0
+    correct_weight_sum = 0.0
+    diff_factor_numer = 0.0
+
+    for question in all_questions:
+        q_weight = float(getattr(question, 'complexityPoints', 1) or 1)
+        total_weight += q_weight
+        diff_factor_numer += q_weight * \
+            difficulty_factor_for_type(getattr(question, 'questionType', None))
+
+        # Проверяем, есть ли ответ пользователя на этот вопрос
+        ua = user_answers_dict.get(question.id)
+        if ua and ua.isCorrect:
+            correct_weight_sum += q_weight
+
+    if total_weight <= 0:
+        return 0.0
+
+    base = (correct_weight_sum / total_weight)
+    avg_diff_factor = diff_factor_numer / total_weight
+    test_score = base * avg_diff_factor * time_factor * 100.0
     return float(max(0.0, min(100.0, test_score)))
 
+
 def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
+    import logging
+    logger = logging.getLogger(__name__)
+
     # collect tests in module
     tests = db.query(TestModel).filter(TestModel.moduleId == module_id).all()
     if not tests:
+        logger.info(f"No tests found for module {module_id}")
         return 0.0
+
+    logger.info(
+        f"Computing knowledge for user {user_id}, module {module_id}, found {len(tests)} tests")
+
     scores = []
     for t in tests:
         # pick latest test result for this user and test
@@ -110,14 +118,24 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
             .first()
         )
         if not tr:
+            logger.info(
+                f"No test result found for test {t.id} (test name: {getattr(t, 'name', 'N/A')})")
             continue
-        sc = compute_test_score(db, t.id, tr.id)
+
+        # Используем процент из TestResult.result вместо compute_test_score
+        # result.result уже содержит правильный процент за весь тест
+        sc = float(getattr(tr, 'result', 0) or 0)
+        logger.info(
+            f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): result={sc}%, result.id={tr.id}, isPassed={getattr(tr, 'isPassed', False)}")
         scores.append(sc)
 
     if not scores:
         knowledge = 0.0
+        logger.info(f"No scores found, knowledge = 0.0")
     else:
         knowledge = float(sum(scores)) / float(len(scores))
+        logger.info(
+            f"Computed knowledge: {knowledge}% (from {len(scores)} test(s), scores: {scores})")
 
     # persist
     from datetime import date
@@ -131,6 +149,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         existing.knowledge = knowledge
         existing.lastUpdated = date.today()
         db.add(existing)
+        logger.info(f"Updated existing UserModuleKnowledge: {knowledge}%")
     else:
         umk = UserModuleKnowledgeModel()
         umk.id = generate_random_id()
@@ -139,6 +158,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         umk.knowledge = knowledge
         umk.lastUpdated = date.today()
         db.add(umk)
+        logger.info(f"Created new UserModuleKnowledge: {knowledge}%")
 
     # update ModulePassed if there's an entry for this user/module
     mp = (
@@ -150,15 +170,21 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         if knowledge >= 80.0:
             mp.isPassed = True
             mp.datePassed = date.today()
+            logger.info(
+                f"Module {module_id} marked as passed (knowledge >= 80%)")
         else:
             mp.isPassed = False
+            logger.info(f"Module {module_id} not passed (knowledge < 80%)")
         db.add(mp)
 
     db.commit()
+    logger.info(f"Module knowledge computation completed: {knowledge}%")
     return knowledge
 
+
 def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
-    modules = db.query(ModuleModel).filter(ModuleModel.courseId == course_id).all()
+    modules = db.query(ModuleModel).filter(
+        ModuleModel.courseId == course_id).all()
     if not modules:
         return 0.0
     module_knowledges = []
@@ -179,7 +205,8 @@ def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
     if not module_knowledges:
         knowledge = 0.0
     else:
-        knowledge = float(sum(module_knowledges)) / float(len(module_knowledges))
+        knowledge = float(sum(module_knowledges)) / \
+            float(len(module_knowledges))
 
     existing_course = (
         db.query(UserCourseKnowledgeModel)

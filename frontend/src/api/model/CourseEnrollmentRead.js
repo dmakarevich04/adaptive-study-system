@@ -23,8 +23,8 @@ class CourseEnrollmentRead {
      * Constructs a new <code>CourseEnrollmentRead</code>.
      * @alias module:model/CourseEnrollmentRead
      * @param id {Number} 
-     * @param dateStarted {String} 
-     * @param dateEnded {String} 
+     * @param dateStarted {Date} 
+     * @param dateEnded {Date} 
      * @param courseId {Number} 
      * @param userId {Number} 
      */
@@ -61,10 +61,10 @@ class CourseEnrollmentRead {
                 obj['id'] = ApiClient.convertToType(data['id'], 'Number');
             }
             if (data.hasOwnProperty('dateStarted')) {
-                obj['dateStarted'] = ApiClient.convertToType(data['dateStarted'], 'String');
+                obj['dateStarted'] = ApiClient.convertToType(data['dateStarted'], 'Date');
             }
             if (data.hasOwnProperty('dateEnded')) {
-                obj['dateEnded'] = ApiClient.convertToType(data['dateEnded'], 'String');
+                obj['dateEnded'] = ApiClient.convertToType(data['dateEnded'], 'Date');
             }
             if (data.hasOwnProperty('courseId')) {
                 obj['courseId'] = ApiClient.convertToType(data['courseId'], 'Number');
@@ -88,18 +88,75 @@ class CourseEnrollmentRead {
                 throw new Error("The required field `" + property + "` is not found in the JSON data: " + JSON.stringify(data));
             }
         }
-        // ensure the json data is a string
-        if (data['dateStarted'] && !(typeof data['dateStarted'] === 'string' || data['dateStarted'] instanceof String)) {
-            throw new Error("Expected the field `dateStarted` to be a primitive type in the JSON string but got " + data['dateStarted']);
-        }
-        // ensure the json data is a string
-        if (data['dateEnded'] && !(typeof data['dateEnded'] === 'string' || data['dateEnded'] instanceof String)) {
-            throw new Error("Expected the field `dateEnded` to be a primitive type in the JSON string but got " + data['dateEnded']);
-        }
 
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {Date}
+     */
+    getDateStarted() {
+        return this.dateStarted;
+    }
+
+    /**
+     * @param {Date} dateStarted
+     */
+    setDateStarted(dateStarted) {
+        this['dateStarted'] = dateStarted;
+    }
+/**
+     * @return {Date}
+     */
+    getDateEnded() {
+        return this.dateEnded;
+    }
+
+    /**
+     * @param {Date} dateEnded
+     */
+    setDateEnded(dateEnded) {
+        this['dateEnded'] = dateEnded;
+    }
+/**
+     * @return {Number}
+     */
+    getCourseId() {
+        return this.courseId;
+    }
+
+    /**
+     * @param {Number} courseId
+     */
+    setCourseId(courseId) {
+        this['courseId'] = courseId;
+    }
+/**
+     * @return {Number}
+     */
+    getUserId() {
+        return this.userId;
+    }
+
+    /**
+     * @param {Number} userId
+     */
+    setUserId(userId) {
+        this['userId'] = userId;
+    }
 
 }
 
@@ -111,12 +168,12 @@ CourseEnrollmentRead.RequiredProperties = ["id", "dateStarted", "dateEnded", "co
 CourseEnrollmentRead.prototype['id'] = undefined;
 
 /**
- * @member {String} dateStarted
+ * @member {Date} dateStarted
  */
 CourseEnrollmentRead.prototype['dateStarted'] = undefined;
 
 /**
- * @member {String} dateEnded
+ * @member {Date} dateEnded
  */
 CourseEnrollmentRead.prototype['dateEnded'] = undefined;
 

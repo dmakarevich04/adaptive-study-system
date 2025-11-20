@@ -5,8 +5,9 @@ from .teaching import router as teaching_router
 
 app = FastAPI(title='LMS Generic API')
 app.include_router(users_router)
-app.include_router(courses_full_router)
 app.include_router(teaching_router)
+app.include_router(courses_full_router)
+
 
 @app.get('/')
 def root():

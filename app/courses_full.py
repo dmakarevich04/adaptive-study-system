@@ -2,7 +2,7 @@ import os
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
 from .db import get_db
@@ -20,6 +20,7 @@ from .models import (
     RolePermission as RolePermissionModel,
     Test as TestModel,
     TestResult as TestResultModel,
+    Topic as TopicModel,  # Добавить эту строку
     UserAnswer as UserAnswerModel,
     UserModuleKnowledge as UserModuleKnowledgeModel,
     UserCourseKnowledge as UserCourseKnowledgeModel,
@@ -44,9 +45,12 @@ from .schemas import (
 )
 from .utils import generate_unique_id, compute_test_score, compute_module_knowledge, compute_course_knowledge
 
-TEST_PASS_PERCENT = int(os.environ.get("TEST_PASS_PERCENT", "50"))
-_max_attempts_env = os.environ.get("TEST_MAX_ATTEMPTS", "3")
-TEST_MAX_ATTEMPTS = int(_max_attempts_env) if _max_attempts_env.isdigit() and int(_max_attempts_env) > 0 else None
+TEST_PASS_PERCENT = int(os.environ.get(
+    "TEST_PASS_PERCENT", "80"))  # Изменено с "50" на "80"
+_max_attempts_env = os.environ.get(
+    "TEST_MAX_ATTEMPTS", None)  # Изменено с "3" на None
+TEST_MAX_ATTEMPTS = int(_max_attempts_env) if _max_attempts_env and _max_attempts_env.isdigit(
+) and int(_max_attempts_env) > 0 else None
 
 router = APIRouter(prefix="/full", tags=["full"])
 
@@ -67,6 +71,7 @@ def create_category(payload: CourseCategoryCreate, db: Session = Depends(get_db)
     db.refresh(category)
     return category
 
+
 @router.get(
     "/admin/categories",
     response_model=list[CourseCategoryRead],
@@ -75,6 +80,7 @@ def create_category(payload: CourseCategoryCreate, db: Session = Depends(get_db)
 )
 def list_categories(limit: int = 100, offset: int = 0, db: Session = Depends(get_db)):
     return db.query(CourseCategoryModel).offset(offset).limit(limit).all()
+
 
 @router.get(
     "/admin/categories/{cat_id}",
@@ -87,6 +93,7 @@ def get_category(cat_id: int, db: Session = Depends(get_db)):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
+
 
 @router.put(
     "/admin/categories/{cat_id}",
@@ -104,6 +111,7 @@ def update_category(cat_id: int, payload: CourseCategoryCreate, db: Session = De
     db.commit()
     db.refresh(category)
     return category
+
 
 @router.delete(
     "/admin/categories/{cat_id}",
@@ -136,6 +144,7 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db)):
     db.refresh(role)
     return role
 
+
 @router.get(
     "/admin/roles",
     response_model=list[RoleRead],
@@ -145,6 +154,7 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db)):
 )
 def list_roles(db: Session = Depends(get_db)):
     return db.query(RoleModel).all()
+
 
 @router.get(
     "/admin/roles/{role_id}",
@@ -158,6 +168,7 @@ def get_role(role_id: int, db: Session = Depends(get_db)):
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     return role
+
 
 @router.put(
     "/admin/roles/{role_id}",
@@ -438,7 +449,8 @@ def get_result(result_id: int, current=Depends(get_current_user), db: Session = 
             course_obj = db.get(CourseModel, test.courseId)
         elif test.moduleId:
             module = db.get(ModuleModel, test.moduleId)
-            course_obj = db.get(CourseModel, module.courseId) if module else None
+            course_obj = db.get(
+                CourseModel, module.courseId) if module else None
     if course_obj and int(course_obj.authorId) == uid:
         return result
     raise HTTPException(status_code=403, detail="Not authorized")
@@ -499,8 +511,31 @@ def unenroll_course(course_id: int, current=Depends(get_current_user), db: Sessi
     summary="Сдать тест",
     description="Принимает ответы пользователя, проверяет их и сохраняет результат попытки.",
 )
-def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+def submit_test(
+    test_id: int,
+    request_body: dict = Body(...),  # Изменено: принимаем весь body как dict
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     uid = int(current_user.id)
+
+    # Извлекаем answers и duration_in_minutes из body
+    answers = request_body.get("answers", {})
+    duration_in_minutes = request_body.get("duration_in_minutes", 0)
+
+    # Логирование для отладки
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Received answers: {answers}, type: {type(answers)}")
+    # УБРАТЬ эту строку - questions еще не определен
+    # logger.info(f"Question IDs in test: {[q.id for q in questions]}")
+
+    # Округляем время: если меньше 1 минуты, то 0, иначе целое число минут
+    if duration_in_minutes < 1:
+        duration_in_minutes = 0
+    else:
+        duration_in_minutes = int(duration_in_minutes)
+
     test = db.get(TestModel, test_id)
     if not test:
         raise HTTPException(status_code=404, detail="Test not found")
@@ -511,7 +546,8 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
     elif test.moduleId:
         module = db.get(ModuleModel, test.moduleId)
         if not module:
-            raise HTTPException(status_code=404, detail="Module for test not found")
+            raise HTTPException(
+                status_code=404, detail="Module for test not found")
         course_id_for_check = module.courseId
 
     if course_id_for_check is not None:
@@ -521,12 +557,17 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
             .first()
         )
         if not enrolled:
-            raise HTTPException(status_code=403, detail="User is not enrolled in the course for this test")
+            raise HTTPException(
+                status_code=403, detail="User is not enrolled in the course for this test")
 
-    questions = db.query(QuestionModel).filter(QuestionModel.testId == test_id).all()
+    questions = db.query(QuestionModel).filter(
+        QuestionModel.testId == test_id).all()
     total_questions = len(questions)
     if total_questions == 0:
         raise HTTPException(status_code=400, detail="Test has no questions")
+
+    # Теперь можно логировать questions, так как они уже определены
+    logger.info(f"Question IDs in test: {[q.id for q in questions]}")
 
     attempts_count = (
         db.query(TestResultModel)
@@ -534,33 +575,83 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
         .count()
     )
     if TEST_MAX_ATTEMPTS is not None and attempts_count >= TEST_MAX_ATTEMPTS:
-        raise HTTPException(status_code=400, detail=f"Max attempts reached ({TEST_MAX_ATTEMPTS})")
+        raise HTTPException(
+            status_code=400, detail=f"Max attempts reached ({TEST_MAX_ATTEMPTS})")
 
     correct = 0
     for question in questions:
         provided: Any | None = None
         if isinstance(answers, dict):
+            # Пробуем получить ответ по числовому ключу (если ключи - числа)
             provided = answers.get(question.id)
+            # Если не нашли, пробуем строковый ключ (JSON всегда использует строки)
             if provided is None:
                 provided = answers.get(str(question.id))
         if provided is None:
+            logger.warning(f"No answer provided for question {question.id}")
             continue
-        try:
-            answer_id = int(provided)
-        except Exception:
-            continue
-        answer = db.get(AnswerModel, answer_id)
-        if answer and answer.questionId == question.id and answer.isCorrect:
-            correct += 1
+
+        # ВАЖНО: Сначала проверяем тип вопроса, потом обрабатываем ответ
+        # Обработка открытых вопросов
+        if question.questionType == 'open':
+            # Для открытых вопросов provided - это текст ответа
+            if not isinstance(provided, str):
+                provided = str(provided)
+
+            # Нормализуем ответ пользователя: убираем пробелы и приводим к нижнему регистру
+            user_answer_normalized = provided.strip().lower()
+
+            # Получаем правильные ответы для этого вопроса
+            correct_answers = db.query(AnswerModel).filter(
+                AnswerModel.questionId == question.id,
+                AnswerModel.isCorrect == True
+            ).all()
+
+            is_correct = False
+            for correct_answer in correct_answers:
+                # Нормализуем правильный ответ
+                correct_text_normalized = correct_answer.text.strip().lower()
+                if user_answer_normalized == correct_text_normalized:
+                    is_correct = True
+                    break
+
+            if is_correct:
+                correct += 1
+                logger.info(
+                    f"Correct open answer for question {question.id}! Total correct: {correct}")
+            else:
+                logger.info(
+                    f"Incorrect open answer for question {question.id}. User: '{user_answer_normalized}', Expected one of: {[ca.text.strip().lower() for ca in correct_answers]}")
+
+        # Обработка тестовых вопросов
+        else:
+            try:
+                answer_id = int(provided)
+                logger.info(f"Question {question.id}: answer_id={answer_id}")
+            except Exception:
+                logger.error(f"Failed to convert answer to int: {provided}")
+                continue
+            answer = db.get(AnswerModel, answer_id)
+            if answer:
+                logger.info(
+                    f"Answer {answer_id}: questionId={answer.questionId}, isCorrect={answer.isCorrect}")
+                if answer.questionId == question.id and answer.isCorrect:
+                    correct += 1
+                    logger.info(f"Correct answer! Total correct: {correct}")
+            else:
+                logger.warning(f"Answer {answer_id} not found in database")
+
+    logger.info(f"Total correct: {correct} out of {total_questions}")
 
     percent = int((correct / total_questions) * 100)
     passed = percent >= TEST_PASS_PERCENT
 
     result = TestResultModel()
+    result.id = generate_unique_id(db, TestResultModel)
     result.scoreInPoints = correct
     # initially mark based on raw percent; will update after detailed scoring
     result.isPassed = passed
-    result.durationInMinutes = 0
+    result.durationInMinutes = duration_in_minutes  # Используем переданное время
     result.result = percent
     result.testId = test_id
     result.userId = uid
@@ -569,6 +660,12 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
     db.refresh(result)
 
     # Bulk-save UserAnswer rows based on provided answers (if any)
+    # Вычисляем время на один вопрос (если есть ответы)
+    time_per_answer = 0
+    if duration_in_minutes > 0 and len(answers) > 0:
+        # Распределяем время равномерно между всеми ответами
+        time_per_answer = duration_in_minutes / len(answers)
+
     try:
         for question in questions:
             provided: Any | None = None
@@ -578,38 +675,117 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
                     provided = answers.get(str(question.id))
             if provided is None:
                 continue
-            try:
-                answer_id = int(provided)
-            except Exception:
-                continue
-            answer = db.get(AnswerModel, answer_id)
-            # Only save if the answer belongs to the question
-            if answer and answer.questionId == question.id:
+
+            # ВАЖНО: Сначала проверяем тип вопроса, потом обрабатываем ответ
+            # Обработка открытых вопросов
+            if question.questionType == 'open':
+                if not isinstance(provided, str):
+                    provided = str(provided)
+
+                # Нормализуем ответ пользователя
+                user_answer_normalized = provided.strip().lower()
+
+                # Получаем правильные ответы для этого вопроса
+                correct_answers = db.query(AnswerModel).filter(
+                    AnswerModel.questionId == question.id,
+                    AnswerModel.isCorrect == True
+                ).all()
+
+                is_correct = False
+                for correct_answer in correct_answers:
+                    correct_text_normalized = correct_answer.text.strip().lower()
+                    if user_answer_normalized == correct_text_normalized:
+                        is_correct = True
+                        break
+
+                # Сохраняем UserAnswer для открытого вопроса
                 ua = UserAnswerModel()
                 ua.id = generate_unique_id(db, UserAnswerModel)
                 ua.userId = uid
                 ua.testResultId = result.id
                 ua.questionId = question.id
-                ua.isCorrect = bool(answer.isCorrect)
-                ua.timeSpentInMinutes = None
+                ua.isCorrect = is_correct
+                # Устанавливаем время прохождения для этого ответа
+                if time_per_answer < 1:
+                    ua.timeSpentInMinutes = 0
+                else:
+                    ua.timeSpentInMinutes = int(time_per_answer)
                 db.add(ua)
+
+            # Обработка тестовых вопросов
+            else:
+                try:
+                    answer_id = int(provided)
+                except Exception:
+                    logger.warning(
+                        f"Failed to convert answer to int for question {question.id}: {provided}")
+                    continue
+                answer = db.get(AnswerModel, answer_id)
+                # Only save if the answer belongs to the question
+                if answer and answer.questionId == question.id:
+                    ua = UserAnswerModel()
+                    ua.id = generate_unique_id(db, UserAnswerModel)
+                    ua.userId = uid
+                    ua.testResultId = result.id
+                    ua.questionId = question.id
+                    ua.isCorrect = bool(answer.isCorrect)
+                    # Устанавливаем время прохождения для этого ответа
+                    if time_per_answer < 1:
+                        ua.timeSpentInMinutes = 0
+                    else:
+                        ua.timeSpentInMinutes = int(time_per_answer)
+                    db.add(ua)
         db.commit()
-    except Exception:
+    except Exception as e:
+        # Логируем ошибку для отладки
+        logger.error(f"Error saving UserAnswer: {e}", exc_info=True)
         # don't fail test submission on UserAnswer save error
         db.rollback()
 
     # Recompute precise test score using per-question data if available
     try:
-        precise_score = compute_test_score(db, test_id, result.id)
-        # store computed percent and passed flag
-        result.result = int(round(precise_score))
-        result.isPassed = precise_score >= TEST_PASS_PERCENT
+        # Получаем все ответы пользователя
+        user_answers_all = db.query(UserAnswerModel).filter(
+            UserAnswerModel.testResultId == result.id
+        ).all()
+
+        # Считаем правильные ответы из всех сохраненных
+        correct_from_answers = sum(
+            1 for ua in user_answers_all if ua.isCorrect)
+
+        # Используем правильный подсчет: правильные ответы / всего вопросов
+        if total_questions > 0:
+            precise_score = (correct_from_answers / total_questions) * 100.0
+        else:
+            precise_score = 0.0
+
+        logger.info(
+            f"Computed precise_score: {precise_score}, correct_from_answers: {correct_from_answers}, total_questions: {total_questions}")
+
+        # Используем максимум из двух для более справедливой оценки
+        final_percent = max(precise_score, percent)
+
+        result.result = int(round(final_percent))
+        result.isPassed = final_percent >= TEST_PASS_PERCENT
+        result.scoreInPoints = correct  # Убеждаемся, что scoreInPoints не перезаписывается
+
+        logger.info(
+            f"Final result: percent={result.result}, isPassed={result.isPassed}, scoreInPoints={result.scoreInPoints}")
+
         db.add(result)
         db.commit()
         db.refresh(result)
-    except Exception:
+        
+        # Убеждаемся, что результат действительно обновлен
+        logger.info(f"After commit, result.result = {result.result}")
+    except Exception as e:
+        # Логируем ошибку для отладки
+        logger.error(f"Error recomputing test score: {e}", exc_info=True)
         # ignore recalculation errors to avoid breaking submission
         db.rollback()
+        # Если пересчет не удался, оставляем исходные значения
+        logger.info(
+            f"Keeping original values: percent={percent}, isPassed={passed}, scoreInPoints={correct}")
 
     # update ModulePassed using the (possibly recomputed) result
     if test and test.moduleId:
@@ -632,6 +808,7 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
                 db.refresh(module_passed)
         else:
             module_passed = ModulePassedModel()
+            module_passed.id = generate_unique_id(db, ModulePassedModel)
             module_passed.moduleId = test.moduleId
             module_passed.isPassed = bool(result.isPassed)
             module_passed.userId = uid
@@ -641,28 +818,112 @@ def submit_test(test_id: int, answers: dict[str, Any] | dict[int, Any], current_
 
     # Trigger recompute of aggregated module/course knowledge for this user
     try:
+        # Убеждаемся, что result обновлен в базе данных
+        # Делаем еще один refresh после всех коммитов
+        db.refresh(result)
+        
+        # Логируем перед вызовом compute_module_knowledge
+        logger.info(f"Before compute_module_knowledge: test_id={test_id}, result.id={result.id}, result.result={result.result}, test.moduleId={test.moduleId if test else None}")
+        
         if test and test.moduleId:
-            compute_module_knowledge(db, uid, test.moduleId)
+            # Вызываем с правильным количеством аргументов (только 3)
+            computed_knowledge = compute_module_knowledge(db, uid, test.moduleId)
+            logger.info(f"Computed module knowledge: {computed_knowledge}%")
         # derive course id
         course_id_for_calc = None
         if test and test.courseId:
             course_id_for_calc = test.courseId
         elif test and test.moduleId:
             mod = db.get(ModuleModel, test.moduleId)
-            course_id_for_calc = getattr(mod, 'courseId', None) if mod else None
+            course_id_for_calc = getattr(
+                mod, 'courseId', None) if mod else None
         if course_id_for_calc:
-            compute_course_knowledge(db, uid, course_id_for_calc)
-    except Exception:
+            computed_course_knowledge = compute_course_knowledge(db, uid, course_id_for_calc)
+            logger.info(f"Computed course knowledge: {computed_course_knowledge}%")
+    except Exception as e:
+        # Логируем ошибку для отладки
+        logger.error(f"Error recomputing module/course knowledge: {e}", exc_info=True)
         # don't fail submission on aggregate recalculation error
         pass
+
+    # Генерация рекомендаций
+    recommendations = []
+
+    # Получаем все ответы пользователя для этого теста
+    user_answers = db.query(UserAnswerModel).filter(
+        UserAnswerModel.testResultId == result.id
+    ).all()
+
+    # Проверяем, вышел ли пользователь за таймаут
+    test_duration = getattr(test, 'durationInMinutes', 0) or 0
+    is_timeout = False
+    if test_duration > 0 and duration_in_minutes > test_duration:
+        is_timeout = True
+        recommendations.append({
+            "type": "timeout",
+            "message": f"Вы превысили отведенное время на тест ({test_duration} минут). Рекомендуем повторить весь материал модуля для лучшего усвоения."
+        })
+
+    # Собираем информацию о неправильных ответах
+    incorrect_answers = [ua for ua in user_answers if not ua.isCorrect]
+    incorrect_test_questions = []
+    incorrect_open_questions = []
+    topics_with_errors = set()
+
+    for ua in incorrect_answers:
+        question = db.get(QuestionModel, ua.questionId)
+        if question:
+            if question.topicId:
+                topics_with_errors.add(question.topicId)
+
+            if question.questionType == 'test':
+                incorrect_test_questions.append(question)
+            elif question.questionType == 'open':
+                incorrect_open_questions.append(question)
+
+    # Генерируем рекомендации по темам
+    if topics_with_errors:
+        topic_names = []
+        for topic_id in topics_with_errors:
+            topic = db.get(TopicModel, topic_id)
+            if topic:
+                topic_names.append(topic.name)
+
+        if topic_names:
+            topics_str = ", ".join(topic_names)
+            recommendations.append({
+                "type": "topics",
+                "message": f"Рекомендуем повторить следующие темы, в которых были допущены ошибки: {topics_str}.",
+                "topic_ids": list(topics_with_errors)
+            })
+
+    # Рекомендации по типам вопросов
+    if incorrect_test_questions:
+        recommendations.append({
+            "type": "question_type",
+            "message": "Вы допустили ошибки в тестовых вопросах. Рекомендуем более внимательно изучать материал и практиковаться с тестовыми заданиями."
+        })
+
+    if incorrect_open_questions:
+        recommendations.append({
+            "type": "question_type",
+            "message": "Вы допустили ошибки в открытых вопросах. Рекомендуем больше практиковаться в формулировании развернутых ответов и повторно изучить соответствующий материал."
+        })
+
+    # Если ошибок не было
+    if not incorrect_answers and not is_timeout:
+        recommendations.append({
+            "type": "success",
+            "message": "Отлично! Вы хорошо усвоили материал модуля. Можете переходить к следующему модулю."
+        })
 
     return {
         "score": result.scoreInPoints,
         "percent": result.result,
         "passed": result.isPassed,
         "attempts": attempts_count + 1,
+        "recommendations": recommendations,  # Добавить рекомендации
     }
-
 
 
 @router.post(
@@ -675,7 +936,8 @@ def create_user_answer(payload: UserAnswerCreate, current=Depends(get_current_us
     uid = int(current.id)
     # enforce that user can only create answers for themselves
     if payload.userId != uid:
-        raise HTTPException(status_code=403, detail="Cannot create answers for other users")
+        raise HTTPException(
+            status_code=403, detail="Cannot create answers for other users")
     ua = UserAnswerModel()
     ua.id = generate_unique_id(db, UserAnswerModel)
     ua.userId = payload.userId
@@ -688,25 +950,29 @@ def create_user_answer(payload: UserAnswerCreate, current=Depends(get_current_us
     db.refresh(ua)
 
     # Trigger recalculation of module and course knowledge when a new answer appears
-    try:
-        # determine test/module/course from question/test
-        q = db.get(QuestionModel, ua.questionId)
-        if q:
-            test_obj = db.get(TestModel, getattr(q, 'testId', None))
-            module_id = getattr(test_obj, 'moduleId', None) if test_obj else None
-            course_id = getattr(test_obj, 'courseId', None) if test_obj else None
-            # compute module knowledge if applicable
-            if module_id:
-                compute_module_knowledge(db, ua.userId, module_id)
-            # compute course knowledge; if test links to module, derive course from module
-            if not course_id and module_id:
-                mod = db.get(ModuleModel, module_id)
-                course_id = getattr(mod, 'courseId', None) if mod else None
-            if course_id:
-                compute_course_knowledge(db, ua.userId, course_id)
-    except Exception:
-        # Don't fail the request if recalculation fails; log could be added here.
-        pass
+    # УБРАТЬ этот блок, так как пересчет должен происходить только после завершения всего теста
+    # в submit_test, а не при создании каждого ответа
+    # try:
+    #     # determine test/module/course from question/test
+    #     q = db.get(QuestionModel, ua.questionId)
+    #     if q:
+    #         test_obj = db.get(TestModel, getattr(q, 'testId', None))
+    #         module_id = getattr(test_obj, 'moduleId',
+    #                             None) if test_obj else None
+    #         course_id = getattr(test_obj, 'courseId',
+    #                             None) if test_obj else None
+    #         # compute module knowledge if applicable
+    #         if module_id:
+    #             compute_module_knowledge(db, ua.userId, module_id)
+    #         # compute course knowledge; if test links to module, derive course from module
+    #         if not course_id and module_id:
+    #             mod = db.get(ModuleModel, module_id)
+    #             course_id = getattr(mod, 'courseId', None) if mod else None
+    #         if course_id:
+    #             compute_course_knowledge(db, ua.userId, course_id)
+    # except Exception:
+    #     # Don't fail the request if recalculation fails; log could be added here.
+    #     pass
 
     return ua
 
@@ -791,7 +1057,8 @@ def admin_list_module_knowledge(db: Session = Depends(get_db)):
 def admin_get_module_knowledge(umk_id: int, db: Session = Depends(get_db)):
     umk = db.get(UserModuleKnowledgeModel, umk_id)
     if not umk:
-        raise HTTPException(status_code=404, detail="UserModuleKnowledge not found")
+        raise HTTPException(
+            status_code=404, detail="UserModuleKnowledge not found")
     return umk
 
 
@@ -854,7 +1121,8 @@ def admin_list_course_knowledge(db: Session = Depends(get_db)):
 def admin_get_course_knowledge(uck_id: int, db: Session = Depends(get_db)):
     uck = db.get(UserCourseKnowledgeModel, uck_id)
     if not uck:
-        raise HTTPException(status_code=404, detail="UserCourseKnowledge not found")
+        raise HTTPException(
+            status_code=404, detail="UserCourseKnowledge not found")
     return uck
 
 
@@ -908,7 +1176,8 @@ def teacher_list_students_course_knowledge(course_id: int, current=Depends(get_c
     if int(course.authorId) != uid:
         raise HTTPException(status_code=403, detail="Not authorized")
     # return knowledge for users enrolled in this course
-    enrollments = db.query(CourseEnrollmentModel).filter(CourseEnrollmentModel.courseId == course_id).all()
+    enrollments = db.query(CourseEnrollmentModel).filter(
+        CourseEnrollmentModel.courseId == course_id).all()
     user_ids = [e.userId for e in enrollments]
     if not user_ids:
         return []
@@ -934,7 +1203,8 @@ def teacher_get_student_course_knowledge(course_id: int, user_id: int, current=D
         .first()
     )
     if not uck:
-        raise HTTPException(status_code=404, detail="UserCourseKnowledge not found")
+        raise HTTPException(
+            status_code=404, detail="UserCourseKnowledge not found")
     return uck
 
 
@@ -949,7 +1219,8 @@ def teacher_get_student_module_knowledge(module_id: int, user_id: int, current=D
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
     # verify teacher is author of parent course
-    course = db.get(CourseModel, module.courseId) if module and module.courseId else None
+    course = db.get(
+        CourseModel, module.courseId) if module and module.courseId else None
     uid = int(current.id)
     if getattr(current, 'role', None) != 'admin' and (not course or int(course.authorId) != uid):
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -959,5 +1230,6 @@ def teacher_get_student_module_knowledge(module_id: int, user_id: int, current=D
         .first()
     )
     if not umk:
-        raise HTTPException(status_code=404, detail="UserModuleKnowledge not found")
+        raise HTTPException(
+            status_code=404, detail="UserModuleKnowledge not found")
     return umk

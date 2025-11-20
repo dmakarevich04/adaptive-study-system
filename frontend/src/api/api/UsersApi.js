@@ -13,6 +13,7 @@
 
 
 import ApiClient from "../ApiClient";
+import CourseEnrollmentRead from '../model/CourseEnrollmentRead';
 import CourseRead from '../model/CourseRead';
 import LoginIn from '../model/LoginIn';
 import RoleUpdate from '../model/RoleUpdate';
@@ -39,13 +40,6 @@ export default class UsersApi {
     }
 
 
-    /**
-     * Callback function to receive the result of the loginFormUsersLoginFormPost operation.
-     * @callback module:api/UsersApi~loginFormUsersLoginFormPostCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/TokenOut} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
 
     /**
      * Войти через form-data
@@ -57,10 +51,9 @@ export default class UsersApi {
      * @param {String} [scope = '')] 
      * @param {String} [clientId] 
      * @param {String} [clientSecret] 
-     * @param {module:api/UsersApi~loginFormUsersLoginFormPostCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/TokenOut}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link module:model/TokenOut} and HTTP response
      */
-    loginFormUsersLoginFormPost(username, password, opts, callback) {
+    loginFormUsersLoginFormPostWithHttpInfo(username, password, opts) {
       opts = opts || {};
       let postBody = null;
       // verify the required parameter 'username' is set
@@ -94,26 +87,37 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/login-form', 'POST',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the loginUsersLoginPost operation.
-     * @callback module:api/UsersApi~loginUsersLoginPostCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/TokenOut} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Войти через form-data
+     * Совместимый с OAuth2 endpoint, принимает данные формы и возвращает JWT токен.
+     * @param {String} username 
+     * @param {String} password 
+     * @param {Object} opts Optional parameters
+     * @param {String} opts.grantType 
+     * @param {String} opts.scope  (default to '')
+     * @param {String} opts.clientId 
+     * @param {String} opts.clientSecret 
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link module:model/TokenOut}
      */
+    loginFormUsersLoginFormPost(username, password, opts) {
+      return this.loginFormUsersLoginFormPostWithHttpInfo(username, password, opts)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Войти по JSON-параметрам
      * Аутентифицирует пользователя по логину и паролю, возвращает JWT токен.
      * @param {module:model/LoginIn} loginIn 
-     * @param {module:api/UsersApi~loginUsersLoginPostCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/TokenOut}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link module:model/TokenOut} and HTTP response
      */
-    loginUsersLoginPost(loginIn, callback) {
+    loginUsersLoginPostWithHttpInfo(loginIn) {
       let postBody = loginIn;
       // verify the required parameter 'loginIn' is set
       if (loginIn === undefined || loginIn === null) {
@@ -136,25 +140,30 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/login', 'POST',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the logoutUsersLogoutPost operation.
-     * @callback module:api/UsersApi~logoutUsersLogoutPostCallback
-     * @param {String} error Error message, if any.
-     * @param {Object} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Войти по JSON-параметрам
+     * Аутентифицирует пользователя по логину и паролю, возвращает JWT токен.
+     * @param {module:model/LoginIn} loginIn 
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link module:model/TokenOut}
      */
+    loginUsersLoginPost(loginIn) {
+      return this.loginUsersLoginPostWithHttpInfo(loginIn)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Завершить сессию
      * Возвращает успешный ответ; фактическое удаление токена выполняется на клиенте.
-     * @param {module:api/UsersApi~logoutUsersLogoutPostCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link Object}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Object} and HTTP response
      */
-    logoutUsersLogoutPost(callback) {
+    logoutUsersLogoutPostWithHttpInfo() {
       let postBody = null;
 
       let pathParams = {
@@ -173,25 +182,29 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/logout', 'POST',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the meUsersMeGet operation.
-     * @callback module:api/UsersApi~meUsersMeGetCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/UserRead} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Завершить сессию
+     * Возвращает успешный ответ; фактическое удаление токена выполняется на клиенте.
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Object}
      */
+    logoutUsersLogoutPost() {
+      return this.logoutUsersLogoutPostWithHttpInfo()
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Получить профиль текущего пользователя
      * Возвращает информацию о текущем аутентифицированном пользователе.
-     * @param {module:api/UsersApi~meUsersMeGetCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/UserRead}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link module:model/UserRead} and HTTP response
      */
-    meUsersMeGet(callback) {
+    meUsersMeGetWithHttpInfo() {
       let postBody = null;
 
       let pathParams = {
@@ -210,17 +223,22 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/me', 'GET',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the myEnrolledCoursesUsersMeCoursesEnrolledGet operation.
-     * @callback module:api/UsersApi~myEnrolledCoursesUsersMeCoursesEnrolledGetCallback
-     * @param {String} error Error message, if any.
-     * @param {Array.<module:model/CourseRead>} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Получить профиль текущего пользователя
+     * Возвращает информацию о текущем аутентифицированном пользователе.
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link module:model/UserRead}
      */
+    meUsersMeGet() {
+      return this.meUsersMeGetWithHttpInfo()
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Список курсов, на которые пользователь записан
@@ -228,10 +246,9 @@ export default class UsersApi {
      * @param {Object} opts Optional parameters
      * @param {Number} [limit = 20)] 
      * @param {Number} [offset = 0)] 
-     * @param {module:api/UsersApi~myEnrolledCoursesUsersMeCoursesEnrolledGetCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link Array.<module:model/CourseRead>}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Array.<module:model/CourseRead>} and HTTP response
      */
-    myEnrolledCoursesUsersMeCoursesEnrolledGet(opts, callback) {
+    myEnrolledCoursesUsersMeCoursesEnrolledGetWithHttpInfo(opts) {
       opts = opts || {};
       let postBody = null;
 
@@ -253,17 +270,66 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/me/courses/enrolled', 'GET',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the myTeachingCoursesUsersMeCoursesTeachingGet operation.
-     * @callback module:api/UsersApi~myTeachingCoursesUsersMeCoursesTeachingGetCallback
-     * @param {String} error Error message, if any.
-     * @param {Array.<module:model/CourseRead>} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Список курсов, на которые пользователь записан
+     * Возвращает опубликованные курсы, в которых текущий пользователь участвует как студент.
+     * @param {Object} opts Optional parameters
+     * @param {Number} opts.limit  (default to 20)
+     * @param {Number} opts.offset  (default to 0)
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Array.<module:model/CourseRead>}
      */
+    myEnrolledCoursesUsersMeCoursesEnrolledGet(opts) {
+      return this.myEnrolledCoursesUsersMeCoursesEnrolledGetWithHttpInfo(opts)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
+
+    /**
+     * Список записей на курсы текущего пользователя
+     * Возвращает список CourseEnrollment для текущего пользователя (даты начала/окончания).
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Array.<module:model/CourseEnrollmentRead>} and HTTP response
+     */
+    myEnrollmentsUsersMeEnrollmentsGetWithHttpInfo() {
+      let postBody = null;
+
+      let pathParams = {
+      };
+      let queryParams = {
+      };
+      let headerParams = {
+      };
+      let formParams = {
+      };
+
+      let authNames = ['OAuth2PasswordBearer'];
+      let contentTypes = [];
+      let accepts = ['application/json'];
+      let returnType = [CourseEnrollmentRead];
+      return this.apiClient.callApi(
+        '/users/me/enrollments', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, null
+      );
+    }
+
+    /**
+     * Список записей на курсы текущего пользователя
+     * Возвращает список CourseEnrollment для текущего пользователя (даты начала/окончания).
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Array.<module:model/CourseEnrollmentRead>}
+     */
+    myEnrollmentsUsersMeEnrollmentsGet() {
+      return this.myEnrollmentsUsersMeEnrollmentsGetWithHttpInfo()
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Список курсов, которые ведет пользователь
@@ -271,10 +337,9 @@ export default class UsersApi {
      * @param {Object} opts Optional parameters
      * @param {Number} [limit = 20)] 
      * @param {Number} [offset = 0)] 
-     * @param {module:api/UsersApi~myTeachingCoursesUsersMeCoursesTeachingGetCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link Array.<module:model/CourseRead>}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Array.<module:model/CourseRead>} and HTTP response
      */
-    myTeachingCoursesUsersMeCoursesTeachingGet(opts, callback) {
+    myTeachingCoursesUsersMeCoursesTeachingGetWithHttpInfo(opts) {
       opts = opts || {};
       let postBody = null;
 
@@ -296,26 +361,33 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/me/courses/teaching', 'GET',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the registerUsersRegisterPost operation.
-     * @callback module:api/UsersApi~registerUsersRegisterPostCallback
-     * @param {String} error Error message, if any.
-     * @param {Object} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Список курсов, которые ведет пользователь
+     * Возвращает авторские курсы текущего пользователя.
+     * @param {Object} opts Optional parameters
+     * @param {Number} opts.limit  (default to 20)
+     * @param {Number} opts.offset  (default to 0)
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Array.<module:model/CourseRead>}
      */
+    myTeachingCoursesUsersMeCoursesTeachingGet(opts) {
+      return this.myTeachingCoursesUsersMeCoursesTeachingGetWithHttpInfo(opts)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Зарегистрировать нового пользователя
      * Создает учетную запись студента с уникальным логином и хешированным паролем.
      * @param {module:model/UserCreate} userCreate 
-     * @param {module:api/UsersApi~registerUsersRegisterPostCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link Object}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Object} and HTTP response
      */
-    registerUsersRegisterPost(userCreate, callback) {
+    registerUsersRegisterPostWithHttpInfo(userCreate) {
       let postBody = userCreate;
       // verify the required parameter 'userCreate' is set
       if (userCreate === undefined || userCreate === null) {
@@ -338,27 +410,32 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/register', 'POST',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
     }
 
     /**
-     * Callback function to receive the result of the updateUserRoleUsersUserIdRolePut operation.
-     * @callback module:api/UsersApi~updateUserRoleUsersUserIdRolePutCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/UserRead} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
+     * Зарегистрировать нового пользователя
+     * Создает учетную запись студента с уникальным логином и хешированным паролем.
+     * @param {module:model/UserCreate} userCreate 
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Object}
      */
+    registerUsersRegisterPost(userCreate) {
+      return this.registerUsersRegisterPostWithHttpInfo(userCreate)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 
     /**
      * Изменить роль пользователя
      * Позволяет администратору обновить роль существующего пользователя.
      * @param {Number} userId 
      * @param {module:model/RoleUpdate} roleUpdate 
-     * @param {module:api/UsersApi~updateUserRoleUsersUserIdRolePutCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/UserRead}
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link module:model/UserRead} and HTTP response
      */
-    updateUserRoleUsersUserIdRolePut(userId, roleUpdate, callback) {
+    updateUserRoleUsersUserIdRolePutWithHttpInfo(userId, roleUpdate) {
       let postBody = roleUpdate;
       // verify the required parameter 'userId' is set
       if (userId === undefined || userId === null) {
@@ -386,8 +463,22 @@ export default class UsersApi {
       return this.apiClient.callApi(
         '/users/{user_id}/role', 'PUT',
         pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, null, callback
+        authNames, contentTypes, accepts, returnType, null
       );
+    }
+
+    /**
+     * Изменить роль пользователя
+     * Позволяет администратору обновить роль существующего пользователя.
+     * @param {Number} userId 
+     * @param {module:model/RoleUpdate} roleUpdate 
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link module:model/UserRead}
+     */
+    updateUserRoleUsersUserIdRolePut(userId, roleUpdate) {
+      return this.updateUserRoleUsersUserIdRolePutWithHttpInfo(userId, roleUpdate)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
     }
 
 

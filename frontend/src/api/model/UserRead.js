@@ -104,6 +104,71 @@ class UserRead {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {String}
+     */
+    getLogin() {
+        return this.login;
+    }
+
+    /**
+     * @param {String} login
+     */
+    setLogin(login) {
+        this['login'] = login;
+    }
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getSurname() {
+        return this.surname;
+    }
+
+    /**
+     * @param {String} surname
+     */
+    setSurname(surname) {
+        this['surname'] = surname;
+    }
+/**
+     * @return {Number}
+     */
+    getRoleId() {
+        return this.roleId;
+    }
+
+    /**
+     * @param {Number} roleId
+     */
+    setRoleId(roleId) {
+        this['roleId'] = roleId;
+    }
 
 }
 

@@ -82,6 +82,45 @@ class RolePermissionRead {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {Number}
+     */
+    getRoleId() {
+        return this.roleId;
+    }
+
+    /**
+     * @param {Number} roleId
+     */
+    setRoleId(roleId) {
+        this['roleId'] = roleId;
+    }
+/**
+     * @return {Number}
+     */
+    getPermissionId() {
+        return this.permissionId;
+    }
+
+    /**
+     * @param {Number} permissionId
+     */
+    setPermissionId(permissionId) {
+        this['permissionId'] = permissionId;
+    }
 
 }
 

@@ -27,10 +27,12 @@ class QuestionRead {
      * @param picture {String} 
      * @param complexityPoints {Number} 
      * @param testId {Number} 
+     * @param questionType {String} 
+     * @param topicId {Number} 
      */
-    constructor(id, text, picture, complexityPoints, testId) { 
+    constructor(id, text, picture, complexityPoints, testId, questionType, topicId) { 
         
-        QuestionRead.initialize(this, id, text, picture, complexityPoints, testId);
+        QuestionRead.initialize(this, id, text, picture, complexityPoints, testId, questionType, topicId);
     }
 
     /**
@@ -38,12 +40,14 @@ class QuestionRead {
      * This method is used by the constructors of any subclasses, in order to implement multiple inheritance (mix-ins).
      * Only for internal use.
      */
-    static initialize(obj, id, text, picture, complexityPoints, testId) { 
+    static initialize(obj, id, text, picture, complexityPoints, testId, questionType, topicId) { 
         obj['id'] = id;
         obj['text'] = text;
         obj['picture'] = picture;
         obj['complexityPoints'] = complexityPoints;
         obj['testId'] = testId;
+        obj['questionType'] = questionType;
+        obj['topicId'] = topicId;
     }
 
     /**
@@ -72,6 +76,12 @@ class QuestionRead {
             if (data.hasOwnProperty('testId')) {
                 obj['testId'] = ApiClient.convertToType(data['testId'], 'Number');
             }
+            if (data.hasOwnProperty('questionType')) {
+                obj['questionType'] = ApiClient.convertToType(data['questionType'], 'String');
+            }
+            if (data.hasOwnProperty('topicId')) {
+                obj['topicId'] = ApiClient.convertToType(data['topicId'], 'Number');
+            }
         }
         return obj;
     }
@@ -96,14 +106,109 @@ class QuestionRead {
         if (data['picture'] && !(typeof data['picture'] === 'string' || data['picture'] instanceof String)) {
             throw new Error("Expected the field `picture` to be a primitive type in the JSON string but got " + data['picture']);
         }
+        // ensure the json data is a string
+        if (data['questionType'] && !(typeof data['questionType'] === 'string' || data['questionType'] instanceof String)) {
+            throw new Error("Expected the field `questionType` to be a primitive type in the JSON string but got " + data['questionType']);
+        }
 
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getId() {
+        return this.id;
+    }
+
+    /**
+     * @param {Number} id
+     */
+    setId(id) {
+        this['id'] = id;
+    }
+/**
+     * @return {String}
+     */
+    getText() {
+        return this.text;
+    }
+
+    /**
+     * @param {String} text
+     */
+    setText(text) {
+        this['text'] = text;
+    }
+/**
+     * @return {String}
+     */
+    getPicture() {
+        return this.picture;
+    }
+
+    /**
+     * @param {String} picture
+     */
+    setPicture(picture) {
+        this['picture'] = picture;
+    }
+/**
+     * @return {Number}
+     */
+    getComplexityPoints() {
+        return this.complexityPoints;
+    }
+
+    /**
+     * @param {Number} complexityPoints
+     */
+    setComplexityPoints(complexityPoints) {
+        this['complexityPoints'] = complexityPoints;
+    }
+/**
+     * @return {Number}
+     */
+    getTestId() {
+        return this.testId;
+    }
+
+    /**
+     * @param {Number} testId
+     */
+    setTestId(testId) {
+        this['testId'] = testId;
+    }
+/**
+     * @return {String}
+     */
+    getQuestionType() {
+        return this.questionType;
+    }
+
+    /**
+     * @param {String} questionType
+     */
+    setQuestionType(questionType) {
+        this['questionType'] = questionType;
+    }
+/**
+     * @return {Number}
+     */
+    getTopicId() {
+        return this.topicId;
+    }
+
+    /**
+     * @param {Number} topicId
+     */
+    setTopicId(topicId) {
+        this['topicId'] = topicId;
+    }
 
 }
 
-QuestionRead.RequiredProperties = ["id", "text", "picture", "complexityPoints", "testId"];
+QuestionRead.RequiredProperties = ["id", "text", "picture", "complexityPoints", "testId", "questionType", "topicId"];
 
 /**
  * @member {Number} id
@@ -129,6 +234,16 @@ QuestionRead.prototype['complexityPoints'] = undefined;
  * @member {Number} testId
  */
 QuestionRead.prototype['testId'] = undefined;
+
+/**
+ * @member {String} questionType
+ */
+QuestionRead.prototype['questionType'] = undefined;
+
+/**
+ * @member {Number} topicId
+ */
+QuestionRead.prototype['topicId'] = undefined;
 
 
 

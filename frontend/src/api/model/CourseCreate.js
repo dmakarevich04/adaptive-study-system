@@ -26,10 +26,11 @@ class CourseCreate {
      * @param description {String} 
      * @param categoryId {Number} 
      * @param authorId {Number} 
+     * @param picture {String} 
      */
-    constructor(name, description, categoryId, authorId) { 
+    constructor(name, description, categoryId, authorId, picture) { 
         
-        CourseCreate.initialize(this, name, description, categoryId, authorId);
+        CourseCreate.initialize(this, name, description, categoryId, authorId, picture);
     }
 
     /**
@@ -37,11 +38,12 @@ class CourseCreate {
      * This method is used by the constructors of any subclasses, in order to implement multiple inheritance (mix-ins).
      * Only for internal use.
      */
-    static initialize(obj, name, description, categoryId, authorId) { 
+    static initialize(obj, name, description, categoryId, authorId, picture) { 
         obj['name'] = name;
         obj['description'] = description;
         obj['categoryId'] = categoryId;
         obj['authorId'] = authorId;
+        obj['picture'] = picture;
     }
 
     /**
@@ -67,6 +69,9 @@ class CourseCreate {
             if (data.hasOwnProperty('authorId')) {
                 obj['authorId'] = ApiClient.convertToType(data['authorId'], 'Number');
             }
+            if (data.hasOwnProperty('picture')) {
+                obj['picture'] = ApiClient.convertToType(data['picture'], 'String');
+            }
         }
         return obj;
     }
@@ -91,14 +96,83 @@ class CourseCreate {
         if (data['description'] && !(typeof data['description'] === 'string' || data['description'] instanceof String)) {
             throw new Error("Expected the field `description` to be a primitive type in the JSON string but got " + data['description']);
         }
+        // ensure the json data is a string
+        if (data['picture'] && !(typeof data['picture'] === 'string' || data['picture'] instanceof String)) {
+            throw new Error("Expected the field `picture` to be a primitive type in the JSON string but got " + data['picture']);
+        }
 
         return true;
     }
 
+/**
+     * @return {String}
+     */
+    getName() {
+        return this.name;
+    }
+
+    /**
+     * @param {String} name
+     */
+    setName(name) {
+        this['name'] = name;
+    }
+/**
+     * @return {String}
+     */
+    getDescription() {
+        return this.description;
+    }
+
+    /**
+     * @param {String} description
+     */
+    setDescription(description) {
+        this['description'] = description;
+    }
+/**
+     * @return {Number}
+     */
+    getCategoryId() {
+        return this.categoryId;
+    }
+
+    /**
+     * @param {Number} categoryId
+     */
+    setCategoryId(categoryId) {
+        this['categoryId'] = categoryId;
+    }
+/**
+     * @return {Number}
+     */
+    getAuthorId() {
+        return this.authorId;
+    }
+
+    /**
+     * @param {Number} authorId
+     */
+    setAuthorId(authorId) {
+        this['authorId'] = authorId;
+    }
+/**
+     * @return {String}
+     */
+    getPicture() {
+        return this.picture;
+    }
+
+    /**
+     * @param {String} picture
+     */
+    setPicture(picture) {
+        this['picture'] = picture;
+    }
 
 }
 
-CourseCreate.RequiredProperties = ["name", "description", "categoryId", "authorId"];
+CourseCreate.RequiredProperties = ["name", "description", "categoryId", "authorId", "picture"];
 
 /**
  * @member {String} name
@@ -119,6 +193,11 @@ CourseCreate.prototype['categoryId'] = undefined;
  * @member {Number} authorId
  */
 CourseCreate.prototype['authorId'] = undefined;
+
+/**
+ * @member {String} picture
+ */
+CourseCreate.prototype['picture'] = undefined;
 
 
 

@@ -3,9 +3,14 @@ import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate } from "re
 import Home from "./pages/Home";
 import CoursesList from "./pages/CoursesList.jsx";
 import CourseInfo from "./pages/CourseInfo.jsx";
+import MyCourses from "./pages/MyCourses.jsx"
+import Teaching from "./pages/Teaching.jsx"
 import { UsersApi } from "./api/index.js";
-import "./styles/index.css";
-
+import CourseEdit from "./pages/CourseEdit.jsx";
+import TestEdit from "./pages/TestEdit.jsx";
+import Studying from "./pages/Studying.jsx";
+import TopicStudying from "./pages/TopicStudying.jsx";
+import TestTaking from "./pages/TestTaking.jsx";
 export const UserContext = createContext();
 const usersApi = new UsersApi();
 
@@ -22,15 +27,22 @@ function App() {
 
     usersApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
 
-    usersApi.meUsersMeGet((err, data) => {
-      if (!err && data) {
-        setUser(data);
-      } else {
+    usersApi.meUsersMeGet()
+      .then((data) => {
+        if (data) {
+          setUser(data);
+        } else {
+          localStorage.removeItem("jwtToken");
+          usersApi.apiClient.defaultHeaders["Authorization"] = "";
+        }
+        setLoadingUser(false);
+      })
+      .catch((err) => {
+        console.error("Ошибка загрузки пользователя:", err);
         localStorage.removeItem("jwtToken");
         usersApi.apiClient.defaultHeaders["Authorization"] = "";
-      }
-      setLoadingUser(false);
-    });
+        setLoadingUser(false);
+      });
   }, []);
 
   if (loadingUser) {
@@ -47,8 +59,13 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/courses" element={<CoursesList />} />
               <Route path="/courses/:courseId" element={<CourseInfo />} />
-              <Route path="/teaching" element={<Placeholder title="Преподавание" />} />
-              <Route path="/my-learning" element={<Placeholder title="Моё обучение" />} />
+              <Route path="/courses/:courseId/studying" element={<Studying />} />
+              <Route path="/courses/:courseId/topics/:topicId/studying" element={<TopicStudying />} />
+              <Route path="/courses/:courseId/tests/:testId/take" element={<TestTaking />} />
+              <Route path="/teaching" element={<Teaching />} />
+              <Route path="/my-learning" element={<MyCourses />} />
+              <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
+              <Route path="courses/:courseId/tests/:testId/edit" element={<TestEdit />} />
             </Routes>
           </main>
           <footer>© 2025 Adaptive Study Platform</footer>
@@ -64,7 +81,7 @@ function Header() {
   return (
     <header className="header">
       <div className="logo-block">
-        <img src="/logo.png" alt="Лого" />
+        <img src="" alt="Лого" />
         <span>EduFlex</span>
       </div>
 
@@ -87,14 +104,19 @@ function LogoutButton() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    usersApi.logoutUsersLogoutPost(() => {
-      console.log("Выход выполнен или проигнорирован");
-    });
-
-    localStorage.removeItem("jwtToken");
-    usersApi.apiClient.defaultHeaders["Authorization"] = "";
-    setUser(null);
-    navigate("/");
+    usersApi.logoutUsersLogoutPost()
+      .then(() => {
+        console.log("Выход выполнен");
+      })
+      .catch((err) => {
+        console.error("Ошибка при выходе:", err);
+      })
+      .finally(() => {
+        localStorage.removeItem("jwtToken");
+        usersApi.apiClient.defaultHeaders["Authorization"] = "";
+        setUser(null);
+        navigate("/");
+      });
   };
 
   return <button className="logout-btn" onClick={handleLogout}>Выйти</button>;

@@ -72,6 +72,19 @@ class RoleUpdate {
         return true;
     }
 
+/**
+     * @return {Number}
+     */
+    getRoleId() {
+        return this.roleId;
+    }
+
+    /**
+     * @param {Number} roleId
+     */
+    setRoleId(roleId) {
+        this['roleId'] = roleId;
+    }
 
 }
 

@@ -13,6 +13,7 @@ export default function CourseEdit() {
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageError, setImageError] = useState(false);
 
   // Формы верхнего уровня
   const [showAddModuleForm, setShowAddModuleForm] = useState(false);
@@ -61,6 +62,7 @@ export default function CourseEdit() {
         setCategories(cats || []);
         setCourse(courseData);
         setImagePreview(null);
+        setImageError(false);
       } catch (err) {
         console.error("Ошибка инициализации:", err);
         setLoading(false);
@@ -267,6 +269,8 @@ export default function CourseEdit() {
       name: testData.name.trim(),
       description: testData.description || "",
       durationInMinutes: Number(testData.duration) || 10,
+      moduleId: null,
+      courseId: null
     };
     if (moduleId) {
       testCreate.moduleId = moduleId;
@@ -275,6 +279,7 @@ export default function CourseEdit() {
     }
 
     try {
+      console.log("Creating test payload:", testCreate);
       const data = await teachingApi.createTestFullTestsPost(testCreate);
       const newTest = { ...data, _source: moduleId ? 'module' : 'global', _moduleId: moduleId };
       setTests(prev => [...prev, newTest]);
@@ -294,7 +299,9 @@ export default function CourseEdit() {
       alert("Тест создан!");
     } catch (err) {
       console.error("Ошибка создания теста:", err);
-      alert("Не удалось создать тест");
+      // Try to extract server-side detail if available (openapi client / fetch wrappers may store it differently)
+      const serverDetail = err?.body?.detail || (err?.response && (err.response.text || err.response.statusText)) || err?.message;
+      alert("Не удалось создать тест: " + (serverDetail || "Неизвестная ошибка"));
     }
   };
 
@@ -335,6 +342,7 @@ export default function CourseEdit() {
         // Очищаем выбранный файл после успешной загрузки
         setSelectedFile(null);
         setImagePreview(null);
+        setImageError(false);
       }
 
       // 3. Сохраняем модули
@@ -657,122 +665,131 @@ export default function CourseEdit() {
   };
 
   return (
-    <div className="course-edit-layout">
-      <aside className="course-sidebar">
-        <div className="course-card">
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 items-start">
+      <aside className="lg:sticky lg:top-4">
+        <div className="card">
           <div
-            className="image-wrapper"
+            className="relative cursor-pointer mb-4 rounded-lg overflow-hidden group"
             onClick={() => document.getElementById("fileInput").click()}
           >
             <img
               src={
                 imagePreview
                   ? imagePreview
-                  : `http://localhost:8000/full/courses/${courseIdFromParams}/picture`
+                  : (imageError ? "https://via.placeholder.com/300x200?text=Upload+Image" : `/full/courses/${courseIdFromParams}/picture`)
               }
               alt={course.name}
-              className="course-cover"
-              onError={(e) => (e.target.src = "/default.png")}
+              className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+              onError={() => setImageError(true)}
             />
-            <div className="overlay">Выбрать...</div>
+            <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white p-2 text-center text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+              Нажмите, чтобы изменить
+            </div>
             <input
               type="file"
               id="fileInput"
               accept="image/*"
               onChange={handleFileChange}
-              style={{ display: "none" }}
+              className="hidden"
             />
           </div>
 
-          <div className="course-card-fields">
-            <label>
-              Название курса:
-              <input
-                type="text"
-                value={course.name || ""}
-                onChange={(e) => handleCourseChange("name", e.target.value)}
-              />
-            </label>
-
-            <label>
-              Категория:
-              <select
-                value={course.categoryId || ""}
-                onChange={(e) =>
-                  handleCourseChange("categoryId", Number(e.target.value))
-                }
-              >
-                <option value="">Выберите категорию</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Описание:
-              <textarea
-                rows="3"
-                value={course.description || ""}
-                onChange={(e) => handleCourseChange("description", e.target.value)}
-              />
-            </label>
-
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={course.isPublished || false}
-                onChange={(e) =>
-                  handleCourseChange("isPublished", e.target.checked)
-                }
-              />
-              Опубликован
-            </label>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Название курса</label>
+            <input
+              type="text"
+              value={course.name || ""}
+              onChange={(e) => handleCourseChange("name", e.target.value)}
+              className="w-full p-2 border rounded"
+            />
           </div>
+
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Категория</label>
+            <select
+              value={course.categoryId || ""}
+              onChange={(e) =>
+                handleCourseChange("categoryId", Number(e.target.value))
+              }
+              className="w-full p-2 border rounded"
+            >
+              <option value="">Выберите категорию</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Описание</label>
+            <textarea
+              rows="5"
+              value={course.description || ""}
+              onChange={(e) => handleCourseChange("description", e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              id="isPublished"
+              checked={course.isPublished || false}
+              onChange={(e) =>
+                handleCourseChange("isPublished", e.target.checked)
+              }
+              className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
+            />
+            <label htmlFor="isPublished" className="cursor-pointer select-none">Опубликован</label>
+          </div>
+          
+          <button className="btn btn-primary w-full" onClick={handleSave}>
+            💾 Сохранить изменения
+          </button>
         </div>
       </aside>
 
-      <main className="course-content">
-        <h2>Редактирование курса: {course.name}</h2>
+      <main>
+        <h1 className="text-2xl font-bold mb-6">Редактирование курса</h1>
 
-        <div className="add-module-section">
+        <div className="mb-4">
           <button
             type="button"
-            className="add-btn"
+            className="btn btn-primary"
             onClick={() => setShowAddModuleForm(!showAddModuleForm)}
           >
             + Добавить модуль
           </button>
 
           {showAddModuleForm && (
-            <div className="add-module-form">
-              <h4>Новый модуль</h4>
-              <label>
-                Название модуля:
+            <div className="card mt-4">
+              <h4 className="mb-4 font-bold">Новый модуль</h4>
+              <div className="mb-4">
+                <label className="block mb-1 font-medium">Название модуля</label>
                 <input
                   type="text"
-                  className="form-input"
                   placeholder="Введите название"
                   value={newModule.name}
                   onChange={(e) => setNewModule({ ...newModule, name: e.target.value })}
+                  className="w-full p-2 border rounded"
                 />
-              </label>
-              <label>
-                Описание (опционально):
+              </div>
+              <div className="mb-4">
+                <label className="block mb-1 font-medium">Описание (опционально)</label>
                 <textarea
-                  className="form-input"
                   rows="2"
                   placeholder="Описание модуля"
                   value={newModule.description}
                   onChange={(e) => setNewModule({ ...newModule, description: e.target.value })}
+                  className="w-full p-2 border rounded"
                 ></textarea>
-              </label>
-              <div className="form-actions">
+              </div>
+              <div className="flex gap-4 justify-end">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setShowAddModuleForm(false);
                     setNewModule({ name: "", description: "" });
@@ -780,7 +797,7 @@ export default function CourseEdit() {
                 >
                   Отмена
                 </button>
-                <button type="button" className="btn-primary" onClick={handleCreateModule}>
+                <button type="button" className="btn btn-primary" onClick={handleCreateModule}>
                   Создать модуль
                 </button>
               </div>
@@ -790,15 +807,15 @@ export default function CourseEdit() {
 
         {course.modules?.length ? (
           course.modules.map((module) => (
-            <div key={module.id} className="module-card">
-              <div className="module-header">
-                <div className="module-header-content">
-                  <strong>{module.name}</strong>
-                  <p>{module.description || "Без описания"}</p>
+            <div key={module.id} className="card mb-4">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="mb-1">{module.name}</h3>
+                  <p className="text-secondary">{module.description || "Без описания"}</p>
                 </div>
                 <button
                   type="button"
-                  className="btn-delete btn-delete-module"
+                  className="btn btn-danger"
                   onClick={() => handleDeleteModule(module.id)}
                   title="Удалить модуль"
                 >
@@ -806,23 +823,22 @@ export default function CourseEdit() {
                 </button>
               </div>
 
-              <div className="add-topic-section">
+              <div className="mb-4">
                 <button
                   type="button"
-                  className="add-btn"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => toggleTopicForm(module.id)}
                 >
                   + Добавить тему
                 </button>
 
                 {openTopicForms[module.id] && (
-                  <div className="add-topic-form">
-                    <h4>Новая тема</h4>
-                    <label>
-                      Название темы:
+                  <div className="card mt-4 bg-gray-50">
+                    <h4 className="mb-4 font-bold">Новая тема</h4>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Название темы</label>
                       <input
                         type="text"
-                        className="form-input"
                         placeholder="Введите название"
                         value={(newTopics[module.id]?.name) || ""}
                         onChange={(e) =>
@@ -831,12 +847,12 @@ export default function CourseEdit() {
                             [module.id]: { ...newTopics[module.id], name: e.target.value }
                           })
                         }
+                        className="w-full p-2 border rounded"
                       />
-                    </label>
-                    <label>
-                      Описание (опционально):
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Описание (опционально)</label>
                       <textarea
-                        className="form-input"
                         rows="2"
                         placeholder="Описание темы"
                         value={(newTopics[module.id]?.description) || ""}
@@ -846,19 +862,20 @@ export default function CourseEdit() {
                             [module.id]: { ...newTopics[module.id], description: e.target.value }
                           })
                         }
+                        className="w-full p-2 border rounded"
                       ></textarea>
-                    </label>
-                    <div className="form-actions">
+                    </div>
+                    <div className="flex gap-4 justify-end">
                       <button
                         type="button"
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                         onClick={() => toggleTopicForm(module.id)}
                       >
                         Отмена
                       </button>
                       <button
                         type="button"
-                        className="btn-primary"
+                        className="btn btn-primary"
                         onClick={() => handleCreateTopic(module.id)}
                       >
                         Создать тему
@@ -870,21 +887,31 @@ export default function CourseEdit() {
 
               {module.topics?.length ? (
                 module.topics.map((t) => (
-                  <div key={t.id} className="topic-card">
-                    <div className="topic-header">
-                      <div className="topic-header-content">
-                        <b>Название темы:</b>
+                  <div key={t.id} className="card mb-4 border border-gray-200 shadow-none">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1 mr-4">
+                        <label className="block text-xs text-gray-500 mb-1">Название темы</label>
                         <input
                           type="text"
                           value={t.name || ""}
                           onChange={(e) =>
                             handleTopicChange(module.id, t.id, "name", e.target.value)
                           }
+                          className="w-full p-2 border rounded mb-2"
+                        />
+                        <label className="block text-xs text-gray-500 mb-1">Описание темы</label>
+                        <input
+                          type="text"
+                          value={t.description || ""}
+                          onChange={(e) =>
+                            handleTopicChange(module.id, t.id, "description", e.target.value)
+                          }
+                          className="w-full p-2 border rounded"
                         />
                       </div>
                       <button
                         type="button"
-                        className="btn-delete btn-delete-topic"
+                        className="btn btn-danger btn-sm"
                         onClick={() => handleDeleteTopic(module.id, t.id)}
                         title="Удалить тему"
                       >
@@ -892,23 +919,12 @@ export default function CourseEdit() {
                       </button>
                     </div>
 
-                    <div className="topic-description">
-                      <b>Описание темы:</b>
-                      <input
-                        type="text"
-                        value={t.description || ""}
-                        onChange={(e) =>
-                          handleTopicChange(module.id, t.id, "description", e.target.value)
-                        }
-                      />
-                    </div>
-
-                    <div className="topic-contents">
-                      <div className="topic-contents-header">
-                        <h4>Материалы:</h4>
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-bold">Материалы</h4>
                         <button
                           type="button"
-                          className="add-btn-small"
+                          className="btn btn-secondary btn-sm text-xs py-1 px-2"
                           onClick={() => setShowAddContentForm((prev) => ({ ...prev, [t.id]: !prev[t.id] }))}
                         >
                           + Добавить материал
@@ -917,29 +933,29 @@ export default function CourseEdit() {
 
                       {/* Форма добавления нового материала */}
                       {showAddContentForm[t.id] && (
-                        <div className="add-content-form">
-                          <label>
-                            Описание:
+                        <div className="card bg-gray-50 mb-4">
+                          <div className="mb-2">
+                            <label className="block mb-1 font-medium">Описание</label>
                             <input
                               type="text"
-                              className="form-input"
                               placeholder="Описание материала"
                               value={(newContentFiles[t.id]?.description) || ""}
                               onChange={(e) => handleNewContentDescriptionChange(t.id, e.target.value)}
+                              className="w-full p-2 border rounded"
                             />
-                          </label>
-                          <label>
-                            Файл:
+                          </div>
+                          <div className="mb-4">
+                            <label className="block mb-1 font-medium">Файл</label>
                             <input
                               type="file"
-                              className="form-input"
                               onChange={(e) => handleContentFileChange(t.id, e)}
+                              className="w-full p-1 border rounded bg-white"
                             />
-                          </label>
-                          <div className="form-actions">
+                          </div>
+                          <div className="flex gap-2 justify-end">
                             <button
                               type="button"
-                              className="btn-secondary"
+                              className="btn btn-secondary btn-sm"
                               onClick={() => {
                                 setShowAddContentForm((prev) => ({ ...prev, [t.id]: false }));
                                 setNewContentFiles((prev) => {
@@ -953,7 +969,7 @@ export default function CourseEdit() {
                             </button>
                             <button
                               type="button"
-                              className="btn-primary"
+                              className="btn btn-primary btn-sm"
                               onClick={() => handleCreateTopicContent(module.id, t.id)}
                             >
                               Загрузить
@@ -964,21 +980,15 @@ export default function CourseEdit() {
 
                       {/* Список существующих материалов */}
                       {t.contents?.length ? (
-                        <div className="contents-list">
+                        <div className="space-y-2">
                           {t.contents.map((c) => (
-                            <div key={c.id} className="content-item-small">
-                              <div className="content-info">
-                                <span className="content-description">
-                                  {c.description || "Без описания"}
-                                </span>
-                                <span className="content-file-name">
+                            <div key={c.id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                              <div className="flex-1 mr-4">
+                                <div className="text-sm font-medium mb-1 text-blue-600">
                                   {c.file ? c.file.split('/').pop() : "Файл не найден"}
-                                </span>
-                              </div>
-                              <div className="content-actions">
+                                </div>
                                 <input
                                   type="text"
-                                  className="content-description-input"
                                   value={c.description || ""}
                                   onChange={(e) =>
                                     handleTopicContentChange(
@@ -990,10 +1000,13 @@ export default function CourseEdit() {
                                     )
                                   }
                                   placeholder="Описание"
+                                  className="text-sm p-1 border rounded w-full"
                                 />
+                              </div>
+                              <div className="flex gap-1">
                                 <button
                                   type="button"
-                                  className="btn-download"
+                                  className="btn btn-secondary btn-sm"
                                   onClick={() => handleDownloadTopicContent(c.id)}
                                   title="Скачать"
                                 >
@@ -1001,7 +1014,7 @@ export default function CourseEdit() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-delete"
+                                  className="btn btn-danger btn-sm"
                                   onClick={() => handleDeleteTopicContent(module.id, t.id, c.id)}
                                   title="Удалить"
                                 >
@@ -1012,21 +1025,21 @@ export default function CourseEdit() {
                           ))}
                         </div>
                       ) : (
-                        <p className="no-content">Нет материалов</p>
+                        <p className="text-secondary text-sm italic">Нет материалов</p>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p>Нет тем</p>
+                <p className="text-secondary mb-4">Нет тем</p>
               )}
 
-              <div className="module-tests-section">
-                <div className="module-tests-header">
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center mb-4">
                   <h4>Тесты модуля</h4>
                   <button
                     type="button"
-                    className="add-btn"
+                    className="btn btn-secondary btn-sm"
                     onClick={() => toggleTestForm(module.id)}
                   >
                     + Добавить тест
@@ -1034,13 +1047,12 @@ export default function CourseEdit() {
                 </div>
 
                 {openTestForms[module.id] && (
-                  <div className="add-test-form">
-                    <h4>Новый тест</h4>
-                    <label>
-                      Название теста:
+                  <div className="card bg-gray-50 mb-4">
+                    <h4 className="mb-4 font-bold">Новый тест</h4>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Название теста</label>
                       <input
                         type="text"
-                        className="form-input"
                         placeholder="Название"
                         value={(newTests[module.id]?.name) || ""}
                         onChange={(e) =>
@@ -1049,12 +1061,12 @@ export default function CourseEdit() {
                             [module.id]: { ...newTests[module.id], name: e.target.value }
                           })
                         }
+                        className="w-full p-2 border rounded"
                       />
-                    </label>
-                    <label>
-                      Описание:
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Описание</label>
                       <textarea
-                        className="form-input"
                         rows="2"
                         placeholder="Описание"
                         value={(newTests[module.id]?.description) || ""}
@@ -1064,14 +1076,14 @@ export default function CourseEdit() {
                             [module.id]: { ...newTests[module.id], description: e.target.value }
                           })
                         }
+                        className="w-full p-2 border rounded"
                       ></textarea>
-                    </label>
-                    <label>
-                      Продолжительность (мин):
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Продолжительность (мин)</label>
                       <input
                         type="number"
                         min="1"
-                        className="form-input"
                         value={(newTests[module.id]?.duration) || "10"}
                         onChange={(e) =>
                           setNewTests({
@@ -1079,19 +1091,20 @@ export default function CourseEdit() {
                             [module.id]: { ...newTests[module.id], duration: e.target.value }
                           })
                         }
+                        className="w-full p-2 border rounded"
                       />
-                    </label>
-                    <div className="form-actions">
+                    </div>
+                    <div className="flex gap-4 justify-end">
                       <button
                         type="button"
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                         onClick={() => toggleTestForm(module.id)}
                       >
                         Отмена
                       </button>
                       <button
                         type="button"
-                        className="btn-primary"
+                        className="btn btn-primary"
                         onClick={() => handleCreateTest(module.id)}
                       >
                         Создать тест
@@ -1101,22 +1114,22 @@ export default function CourseEdit() {
                 )}
 
                 {module._tests?.length > 0 && (
-                  <div className="module-tests-list">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                     {module._tests.map((test) => (
-                      <div key={test.id} className="test-card">
+                      <div key={test.id} className="card bg-gray-50 border border-gray-200 shadow-none flex justify-between items-center p-4">
                         <strong>{test.name || "Без названия"}</strong>
-                        <div className="test-card-actions">
+                        <div className="flex gap-2">
                           <button
-                            className="edit-test-btn"
+                            className="btn btn-primary btn-sm"
                             onClick={() =>
                               navigate(`/courses/${courseIdFromParams}/tests/${test.id}/edit`)
                             }
                           >
-                            Редактировать
+                            ✏️
                           </button>
                           <button
                             type="button"
-                            className="btn-delete btn-delete-test"
+                            className="btn btn-danger btn-sm"
                             onClick={() => handleDeleteTest(test.id, false)}
                             title="Удалить тест"
                           >
@@ -1131,15 +1144,15 @@ export default function CourseEdit() {
             </div>
           ))
         ) : (
-          <p>Нет модулей</p>
+          <p className="text-secondary">Нет модулей</p>
         )}
 
-        <div className="global-tests-section">
-          <div className="global-tests-header">
+        <div className="mt-8 pt-4 border-t border-gray-200">
+          <div className="flex justify-between items-center mb-4">
             <h3>Глобальные тесты (без привязки к модулю)</h3>
             <button
               type="button"
-              className="add-btn"
+              className="btn btn-primary"
               onClick={() => setShowAddGlobalTestForm(!showAddGlobalTestForm)}
             >
               + Добавить глобальный тест
@@ -1147,42 +1160,39 @@ export default function CourseEdit() {
           </div>
 
           {showAddGlobalTestForm && (
-            <div className="add-test-form">
+            <div className="card mb-4">
               <h4>Новый глобальный тест</h4>
-              <label>
-                Название теста:
+              <div className="mb-4">
+                <label>Название теста</label>
                 <input
                   type="text"
-                  className="form-input"
                   placeholder="Название"
                   value={newGlobalTest.name}
                   onChange={(e) => setNewGlobalTest({ ...newGlobalTest, name: e.target.value })}
                 />
-              </label>
-              <label>
-                Описание:
+              </div>
+              <div className="mb-4">
+                <label>Описание</label>
                 <textarea
-                  className="form-input"
                   rows="2"
                   placeholder="Описание"
                   value={newGlobalTest.description}
                   onChange={(e) => setNewGlobalTest({ ...newGlobalTest, description: e.target.value })}
                 ></textarea>
-              </label>
-              <label>
-                Продолжительность (мин):
+              </div>
+              <div className="mb-4">
+                <label>Продолжительность (мин)</label>
                 <input
                   type="number"
                   min="1"
-                  className="form-input"
                   value={newGlobalTest.duration}
                   onChange={(e) => setNewGlobalTest({ ...newGlobalTest, duration: e.target.value })}
                 />
-              </label>
-              <div className="form-actions">
+              </div>
+              <div className="flex gap-4 justify-end">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setShowAddGlobalTestForm(false);
                     setNewGlobalTest({ name: "", description: "", duration: "10" });
@@ -1190,7 +1200,7 @@ export default function CourseEdit() {
                 >
                   Отмена
                 </button>
-                <button type="button" className="btn-primary" onClick={() => handleCreateTest()}>
+                <button type="button" className="btn btn-primary" onClick={() => handleCreateTest()}>
                   Создать тест
                 </button>
               </div>
@@ -1198,24 +1208,24 @@ export default function CourseEdit() {
           )}
 
           {tests.filter(t => t._source === 'global').length > 0 && (
-            <div className="global-tests-list">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               {tests
                 .filter(t => t._source === 'global')
                 .map((test) => (
-                  <div key={test.id} className="test-card">
+                  <div key={test.id} className="card flex justify-between items-center p-4">
                     <strong>{test.name || "Без названия"}</strong>
-                    <div className="test-card-actions">
+                    <div className="flex gap-2">
                       <button
-                        className="edit-test-btn"
+                        className="btn btn-primary btn-sm"
                         onClick={() =>
                           navigate(`/courses/${courseIdFromParams}/tests/${test.id}/edit`)
                         }
                       >
-                        Редактировать
+                        ✏️
                       </button>
                       <button
                         type="button"
-                        className="btn-delete btn-delete-test"
+                        className="btn btn-danger btn-sm"
                         onClick={() => handleDeleteTest(test.id, true)}
                         title="Удалить тест"
                       >
@@ -1227,10 +1237,6 @@ export default function CourseEdit() {
             </div>
           )}
         </div>
-
-        <button className="save-btn" onClick={handleSave}>
-          💾 Сохранить изменения
-        </button>
       </main>
     </div>
   );

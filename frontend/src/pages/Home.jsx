@@ -79,105 +79,121 @@ function Home() {
 
   if (user) {
     return (
-      <div className="welcome">
+      <div className="text-center mt-4">
         <h1>Добро пожаловать, {user.name} {user.surname}!</h1>
-        <p>Вот твои адаптивные курсы и рекомендации.</p>
+        <p className="text-secondary">Вот твои адаптивные курсы и рекомендации.</p>
       </div>
     );
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-wrapper">
-        <div className={`form-container ${mode === "register" ? "shift" : ""}`}>
-          {/* ВХОД */}
+    <div className="login-container">
+      <div className="card">
+        {mode === "login" ? (
           <div className="form login-form">
-            <h2>Вход</h2>
-            {error && mode === "login" && <p className="error">{error}</p>}
-            <input
-              placeholder="Email / Логин"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleLogin();
-              }}
-            />
-            <input
-              placeholder="Пароль"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleLogin();
-              }}
-            />
-            <button onClick={handleLogin} type="button">Войти</button>
-            <p>
+            <h2 className="text-center">Вход</h2>
+            {error && <p className="text-center" style={{ color: 'var(--danger-color)', marginBottom: '1rem' }}>{error}</p>}
+            <div className="mb-4">
+              <label>Email / Логин</label>
+              <input
+                placeholder="Email / Логин"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleLogin();
+                }}
+              />
+            </div>
+            <div className="mb-4">
+              <label>Пароль</label>
+              <input
+                placeholder="Пароль"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleLogin();
+                }}
+              />
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1rem' }} onClick={handleLogin} type="button">Войти</button>
+            <p className="text-center">
               Нет аккаунта?{" "}
               <span 
                 onClick={() => {
                   setMode("register");
                   setError("");
                 }}
-                style={{ cursor: "pointer", color: "#007bff" }}
+                style={{ cursor: "pointer", color: "var(--primary-color)", fontWeight: 500 }}
               >
                 Зарегистрироваться
               </span>
             </p>
           </div>
-
-          {/* РЕГИСТРАЦИЯ */}
+        ) : (
           <div className="form register-form">
-            <h2>Регистрация</h2>
-            {error && mode === "register" && <p className="error">{error}</p>}
-            <input
-              placeholder="Email"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleRegister();
-              }}
-            />
-            <input
-              placeholder="Пароль"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleRegister();
-              }}
-            />
-            <input
-              placeholder="Имя"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleRegister();
-              }}
-            />
-            <input
-              placeholder="Фамилия"
-              value={surname}
-              onChange={(e) => setSurname(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleRegister();
-              }}
-            />
-            <button onClick={handleRegister} type="button">Создать аккаунт</button>
-            <p>
+            <h2 className="text-center">Регистрация</h2>
+            {error && <p className="text-center" style={{ color: 'var(--danger-color)', marginBottom: '1rem' }}>{error}</p>}
+            <div className="mb-4">
+              <label>Email</label>
+              <input
+                placeholder="Email"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleRegister();
+                }}
+              />
+            </div>
+            <div className="mb-4">
+              <label>Пароль</label>
+              <input
+                placeholder="Пароль"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleRegister();
+                }}
+              />
+            </div>
+            <div className="mb-4">
+              <label>Имя</label>
+              <input
+                placeholder="Имя"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleRegister();
+                }}
+              />
+            </div>
+            <div className="mb-4">
+              <label>Фамилия</label>
+              <input
+                placeholder="Фамилия"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleRegister();
+                }}
+              />
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1rem' }} onClick={handleRegister} type="button">Создать аккаунт</button>
+            <p className="text-center">
               Уже зарегистрированы?{" "}
               <span 
                 onClick={() => {
                   setMode("login");
                   setError("");
                 }}
-                style={{ cursor: "pointer", color: "#007bff" }}
+                style={{ cursor: "pointer", color: "var(--primary-color)", fontWeight: 500 }}
               >
                 Войти
               </span>
             </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

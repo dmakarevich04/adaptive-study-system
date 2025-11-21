@@ -309,10 +309,20 @@ export default function TestEdit() {
         name: test.name.trim(),
         description: test.description || "",
         durationInMinutes: Number(test.durationInMinutes),
+        moduleId: null,
+        courseId: null,
       };
 
-      if (effectiveCourseId) testPayload.courseId = effectiveCourseId;
-      if (effectiveModuleId) testPayload.moduleId = effectiveModuleId;
+      // Ensure exactly one of moduleId/courseId is set (server requires this)
+      if (effectiveModuleId) {
+        testPayload.moduleId = effectiveModuleId;
+        testPayload.courseId = null;
+      } else if (effectiveCourseId) {
+        testPayload.courseId = effectiveCourseId;
+        testPayload.moduleId = null;
+      }
+
+      console.log("Updating test payload:", testPayload);
 
       // Обновление теста
       await teachingApi.updateTestFullTestsTestIdPut(id, testPayload);
@@ -442,17 +452,17 @@ export default function TestEdit() {
     }
   };
 
-  if (loading) return <div className="test-edit-loading">Загрузка...</div>;
-  if (error) return <div className="test-edit-error">Ошибка: {error}</div>;
-  if (!test) return <div className="test-edit-not-found">Тест не найден</div>;
+  if (loading) return <div className="p-8 text-center">Загрузка...</div>;
+  if (error) return <div className="p-8 text-center text-red-600">Ошибка: {error}</div>;
+  if (!test) return <div className="p-8 text-center">Тест не найден</div>;
 
   return (
-    <div className="test-edit-container">
-      <div className="test-edit-header">
-        <h2 className="test-edit-title">Редактирование теста</h2>
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Редактирование теста</h2>
         <button
           type="button"
-          className="btn-delete btn-delete-test"
+          className="btn btn-danger"
           onClick={handleDeleteTest}
           title="Удалить тест"
         >
@@ -460,90 +470,92 @@ export default function TestEdit() {
         </button>
       </div>
 
-      <div className="test-edit-fields">
-        <label className="test-edit-label">
-          Название *
+      <div className="card mb-6">
+        <div className="mb-4">
+          <label className="block mb-1 font-medium">Название *</label>
           <input
             type="text"
             value={test.name || ""}
             onChange={(e) => handleTestChange("name", e.target.value)}
-            className="test-edit-input"
+            className="w-full p-2 border rounded"
           />
-        </label>
+        </div>
 
-        <label className="test-edit-label">
-          Описание
+        <div className="mb-4">
+          <label className="block mb-1 font-medium">Описание</label>
           <textarea
             value={test.description || ""}
             onChange={(e) => handleTestChange("description", e.target.value)}
             rows="3"
-            className="test-edit-textarea"
+            className="w-full p-2 border rounded"
           />
-        </label>
+        </div>
 
-        <label className="test-edit-label">
-          Продолжительность (минуты) *
+        <div className="mb-4">
+          <label className="block mb-1 font-medium">Продолжительность (минуты) *</label>
           <input
             type="number"
             min="1"
             value={test.durationInMinutes || ""}
             onChange={(e) => handleTestChange("durationInMinutes", e.target.value ? Number(e.target.value) : "")}
-            className="test-edit-input"
+            className="w-full p-2 border rounded"
           />
-        </label>
+        </div>
       </div>
 
       {/* Кнопка добавления вопроса */}
-      <div className="add-question-section">
+      <div className="mb-6">
         <button
           type="button"
-          className="add-btn"
+          className="btn btn-primary w-full md:w-auto"
           onClick={() => setShowAddQuestionForm(!showAddQuestionForm)}
         >
           + Добавить вопрос
         </button>
 
         {showAddQuestionForm && (
-          <div className="add-question-form">
-            <h4>Новый вопрос</h4>
-            <label className="test-edit-label">
-              Текст вопроса *
+          <div className="card mt-4">
+            <h4 className="mb-4 font-bold">Новый вопрос</h4>
+            <div className="mb-4">
+              <label className="block mb-1 font-medium">Текст вопроса *</label>
               <textarea
                 value={newQuestion.text}
                 onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
                 rows="3"
-                className="test-edit-textarea"
+                className="w-full p-2 border rounded"
                 placeholder="Введите текст вопроса"
               />
-            </label>
-            <label className="test-edit-label">
-              Сложность (баллы)
-              <input
-                type="number"
-                min="0"
-                value={newQuestion.complexityPoints}
-                onChange={(e) => setNewQuestion({ ...newQuestion, complexityPoints: Number(e.target.value) || 1 })}
-                className="test-edit-input"
-              />
-            </label>
-            <label className="test-edit-label">
-              Тип вопроса
-              <select
-                value={newQuestion.questionType}
-                onChange={(e) => setNewQuestion({ ...newQuestion, questionType: e.target.value })}
-                className="test-edit-input"
-              >
-                <option value="test">Тестовый (с вариантами ответов)</option>
-                <option value="open">Открытый (текстовый ответ)</option>
-              </select>
-            </label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block mb-1 font-medium">Сложность (баллы)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newQuestion.complexityPoints}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, complexityPoints: Number(e.target.value) || 1 })}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium">Тип вопроса</label>
+                <select
+                  value={newQuestion.questionType}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, questionType: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="test">Тестовый (с вариантами ответов)</option>
+                  <option value="open">Открытый (текстовый ответ)</option>
+                </select>
+              </div>
+            </div>
             {topics.length > 0 && (
-              <label className="test-edit-label">
-                Привязать к теме (опционально)
+              <div className="mb-4">
+                <label className="block mb-1 font-medium">Привязать к теме (опционально)</label>
                 <select
                   value={newQuestion.topicId || ""}
                   onChange={(e) => setNewQuestion({ ...newQuestion, topicId: e.target.value ? Number(e.target.value) : null })}
-                  className="test-edit-input"
+                  className="w-full p-2 border rounded"
                 >
                   <option value="">Не привязывать</option>
                   {topics.map((topic) => (
@@ -552,12 +564,12 @@ export default function TestEdit() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             )}
-            <div className="form-actions">
+            <div className="flex gap-4 justify-end">
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn btn-secondary"
                 onClick={() => {
                   setShowAddQuestionForm(false);
                   setNewQuestion({ text: "", complexityPoints: 1, questionType: "test", topicId: null });
@@ -565,7 +577,7 @@ export default function TestEdit() {
               >
                 Отмена
               </button>
-              <button type="button" className="btn-primary" onClick={handleCreateQuestion}>
+              <button type="button" className="btn btn-primary" onClick={handleCreateQuestion}>
                 Создать вопрос
               </button>
             </div>
@@ -573,18 +585,18 @@ export default function TestEdit() {
         )}
       </div>
 
-      <h3 className="test-edit-questions-title">Вопросы ({questions.length})</h3>
+      <h3 className="text-xl font-bold mb-4">Вопросы ({questions.length})</h3>
 
       {questions.length === 0 ? (
-        <p className="test-edit-no-questions">Нет вопросов</p>
+        <p className="text-gray-500 italic">Нет вопросов</p>
       ) : (
         questions.map((q) => (
-          <div key={q.id} className="test-edit-question-card">
-            <div className="test-edit-question-header">
-              <h4 className="test-edit-question-heading">Вопрос #{q.id}</h4>
+          <div key={q.id} className="card mb-6">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="font-bold text-lg">Вопрос #{q.id}</h4>
               <button
                 type="button"
-                className="btn-delete btn-delete-question"
+                className="btn btn-danger btn-sm"
                 onClick={() => handleDeleteQuestion(q.id)}
                 title="Удалить вопрос"
               >
@@ -592,107 +604,107 @@ export default function TestEdit() {
               </button>
             </div>
 
-            <label className="test-edit-label">
-              Текст *
+            <div className="mb-4">
+              <label className="block mb-1 font-medium">Текст *</label>
               <textarea
                 value={q.text || ""}
                 onChange={(e) => handleQuestionChange(q.id, "text", e.target.value)}
                 rows="2"
-                className="test-edit-textarea"
+                className="w-full p-2 border rounded"
               />
-            </label>
+            </div>
 
-            <label className="test-edit-label">
-              Тип вопроса
-              <select
-                value={q.questionType || "test"}
-                onChange={(e) => handleQuestionChange(q.id, "questionType", e.target.value)}
-                className="test-edit-input"
-              >
-                <option value="test">Тестовый</option>
-                <option value="open">Открытый</option>
-              </select>
-            </label>
-
-            {topics.length > 0 && (
-              <label className="test-edit-label">
-                Привязать к теме
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block mb-1 font-medium">Тип вопроса</label>
                 <select
-                  value={q.topicId || ""}
-                  onChange={(e) => handleQuestionChange(q.id, "topicId", e.target.value ? Number(e.target.value) : null)}
-                  className="test-edit-input"
+                  value={q.questionType || "test"}
+                  onChange={(e) => handleQuestionChange(q.id, "questionType", e.target.value)}
+                  className="w-full p-2 border rounded"
                 >
-                  <option value="">Не привязывать</option>
-                  {topics.map((topic) => (
-                    <option key={topic.id} value={topic.id}>
-                      {topic.name}
-                    </option>
-                  ))}
+                  <option value="test">Тестовый</option>
+                  <option value="open">Открытый</option>
                 </select>
-              </label>
-            )}
+              </div>
+
+              {topics.length > 0 && (
+                <div>
+                  <label className="block mb-1 font-medium">Привязать к теме</label>
+                  <select
+                    value={q.topicId || ""}
+                    onChange={(e) => handleQuestionChange(q.id, "topicId", e.target.value ? Number(e.target.value) : null)}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Не привязывать</option>
+                    {topics.map((topic) => (
+                      <option key={topic.id} value={topic.id}>
+                        {topic.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
 
             {/* Картинка вопроса */}
-            <div className="test-edit-picture-section">
-              <label className="test-edit-label">Картинка вопроса</label>
+            <div className="mb-4 p-4 bg-gray-50 rounded">
+              <label className="block mb-2 font-medium">Картинка вопроса</label>
               {q.picture ? (
-                <div className="test-edit-picture-preview">
+                <div className="flex flex-col items-start gap-2">
                   <img
                     src={`/full/questions/${q.id}/picture`}
                     alt="Картинка вопроса"
-                    className="test-edit-picture-img"
+                    className="max-w-full h-auto max-h-64 object-contain border rounded"
                     onError={(e) => {
                       e.target.style.display = "none";
                     }}
                   />
-                  <div className="test-edit-picture-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => handleDeleteQuestionPicture(q.id)}
-                    >
-                      Удалить картинку
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleDeleteQuestionPicture(q.id)}
+                  >
+                    Удалить картинку
+                  </button>
                 </div>
               ) : (
-                <div className="test-edit-picture-upload">
+                <div className="flex gap-2 items-center">
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleQuestionFileChange(q.id, e)}
-                    className="test-edit-input"
+                    className="p-1 border rounded"
                   />
                   {questionFiles[q.id] && (
                     <button
                       type="button"
-                      className="btn-primary"
+                      className="btn btn-primary btn-sm"
                       onClick={() => handleUploadQuestionPicture(q.id)}
                     >
-                      Загрузить картинку
+                      Загрузить
                     </button>
                   )}
                 </div>
               )}
             </div>
 
-            <label className="test-edit-label">
-              Сложность (баллы)
+            <div className="mb-4">
+              <label className="block mb-1 font-medium">Сложность (баллы)</label>
               <input
                 type="number"
                 min="0"
                 value={q.complexityPoints || 0}
                 onChange={(e) => handleQuestionChange(q.id, "complexityPoints", Number(e.target.value))}
-                className="test-edit-input"
+                className="w-full p-2 border rounded md:w-1/3"
               />
-            </label>
+            </div>
 
-            <div className="test-edit-answers-section">
-              <div className="answers-header">
-                <strong>Ответы:</strong>
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <strong className="text-lg">Ответы:</strong>
                 <button
                   type="button"
-                  className="add-btn add-answer-btn"
+                  className="btn btn-primary btn-sm"
                   onClick={() => toggleAnswerForm(q.id)}
                 >
                   + Добавить ответ
@@ -701,12 +713,12 @@ export default function TestEdit() {
 
               {/* Форма добавления ответа */}
               {openAnswerForms[q.id] && (
-                <div className="add-answer-form">
-                  <label className="test-edit-label">
-                    Текст нового ответа *
+                <div className="bg-gray-50 p-4 rounded mb-4 border">
+                  <label className="block mb-1 font-medium">Текст нового ответа *</label>
+                  <div className="flex gap-2 mb-2">
                     <input
                       type="text"
-                      className="test-edit-input"
+                      className="w-full p-2 border rounded"
                       placeholder="Введите текст ответа"
                       value={newAnswers[q.id] || ""}
                       onChange={(e) =>
@@ -716,63 +728,68 @@ export default function TestEdit() {
                         }))
                       }
                     />
-                  </label>
-                  <div className="form-actions">
+                  </div>
+                  <div className="flex gap-2 justify-end">
                     <button
                       type="button"
-                      className="btn-secondary"
+                      className="btn btn-secondary btn-sm"
                       onClick={() => toggleAnswerForm(q.id)}
                     >
                       Отмена
                     </button>
                     <button
                       type="button"
-                      className="btn-primary"
+                      className="btn btn-primary btn-sm"
                       onClick={() => handleCreateAnswer(q.id)}
                     >
-                      Добавить ответ
+                      Добавить
                     </button>
                   </div>
                 </div>
               )}
 
               {q.answers.length === 0 && !openAnswerForms[q.id] ? (
-                <p className="test-edit-no-answers">Нет ответов</p>
+                <p className="text-gray-500 italic">Нет ответов</p>
               ) : (
-                q.answers.map((a) => (
-                  <div key={a.id} className="test-edit-answer-item">
-                    <input
-                      type="checkbox"
-                      checked={a.isCorrect || false}
-                      onChange={(e) => handleAnswerChange(q.id, a.id, "isCorrect", e.target.checked)}
-                      className="test-edit-answer-checkbox"
-                    />
-                    <input
-                      type="text"
-                      value={a.text || ""}
-                      onChange={(e) => handleAnswerChange(q.id, a.id, "text", e.target.value)}
-                      placeholder="Текст ответа"
-                      className="test-edit-answer-input"
-                    />
-                    <button
-                      type="button"
-                      className="btn-delete btn-delete-answer"
-                      onClick={() => handleDeleteAnswer(q.id, a.id)}
-                      title="Удалить ответ"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                ))
+                <div className="space-y-2">
+                  {q.answers.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={a.isCorrect || false}
+                        onChange={(e) => handleAnswerChange(q.id, a.id, "isCorrect", e.target.checked)}
+                        className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
+                        title="Правильный ответ?"
+                      />
+                      <input
+                        type="text"
+                        value={a.text || ""}
+                        onChange={(e) => handleAnswerChange(q.id, a.id, "text", e.target.value)}
+                        placeholder="Текст ответа"
+                        className="flex-1 p-2 border rounded"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleDeleteAnswer(q.id, a.id)}
+                        title="Удалить ответ"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
         ))
       )}
 
-      <button onClick={handleSave} className="test-edit-save-btn">
-        💾 Сохранить всё
-      </button>
+      <div className="sticky bottom-4 bg-white p-4 shadow-lg rounded border border-gray-200 mt-8 flex justify-end">
+        <button onClick={handleSave} className="btn btn-primary btn-lg shadow-md">
+          💾 Сохранить всё
+        </button>
+      </div>
     </div>
   );
 }

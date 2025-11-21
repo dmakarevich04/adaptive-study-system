@@ -107,7 +107,9 @@ function MyTeachingCourses() {
     }
 
     try {
-      await teachingApi.publishCourseFullCoursesCourseIdPublishPatch(courseId, { publish: newStatus });
+      console.log("Publishing course", courseId, "->", newStatus);
+      // API expects a boolean query param; pass boolean directly (not an object)
+      await teachingApi.publishCourseFullCoursesCourseIdPublishPatch(courseId, newStatus);
       setCourses((prev) =>
         prev.map((c) =>
           c.id === courseId ? { ...c, isPublished: newStatus } : c
@@ -173,16 +175,16 @@ function MyTeachingCourses() {
   };
 
   if (loading) {
-    return <div className="loading">Загрузка курсов...</div>;
+    return <div className="flex items-center justify-center h-64">Загрузка курсов...</div>;
   }
 
   return (
-    <div className="my-courses-page">
-      <div className="courses-header">
-        <h1 className="courses-title">Ваши курсы</h1>
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h1>Ваши курсы</h1>
         <button
           type="button"
-          className="add-btn"
+          className="btn btn-primary"
           onClick={() => setShowAddCourseForm(!showAddCourseForm)}
         >
           + Создать новый курс
@@ -191,32 +193,31 @@ function MyTeachingCourses() {
 
       {/* Форма создания нового курса */}
       {showAddCourseForm && (
-        <div className="add-course-form">
-          <h3>Создать новый курс</h3>
-          <label className="form-label">
-            Название курса *
+        <div className="card mb-6">
+          <h3 className="text-xl font-bold mb-4">Создать новый курс</h3>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Название курса *</label>
             <input
               type="text"
-              className="form-input"
               placeholder="Введите название курса"
               value={newCourse.name}
               onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
+              className="w-full p-2 border rounded"
             />
-          </label>
-          <label className="form-label">
-            Описание
+          </div>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Описание</label>
             <textarea
-              className="form-input"
               rows="3"
               placeholder="Описание курса"
               value={newCourse.description}
               onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
+              className="w-full p-2 border rounded"
             />
-          </label>
-          <label className="form-label">
-            Категория
+          </div>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Категория</label>
             <select
-              className="form-input"
               value={newCourse.categoryId || ""}
               onChange={(e) =>
                 setNewCourse({
@@ -224,6 +225,7 @@ function MyTeachingCourses() {
                   categoryId: e.target.value ? Number(e.target.value) : null,
                 })
               }
+              className="w-full p-2 border rounded"
             >
               <option value="">Выберите категорию (опционально)</option>
               {categories.map((cat) => (
@@ -232,11 +234,11 @@ function MyTeachingCourses() {
                 </option>
               ))}
             </select>
-          </label>
-          <div className="form-actions">
+          </div>
+          <div className="flex gap-4 justify-end">
             <button
               type="button"
-              className="btn-secondary"
+              className="btn btn-secondary"
               onClick={() => {
                 setShowAddCourseForm(false);
                 setNewCourse({ name: "", description: "", categoryId: null });
@@ -244,73 +246,72 @@ function MyTeachingCourses() {
             >
               Отмена
             </button>
-            <button type="button" className="btn-primary" onClick={handleCreateCourse}>
+            <button type="button" className="btn btn-primary" onClick={handleCreateCourse}>
               Создать курс
             </button>
           </div>
         </div>
       )}
 
-      <div className="my-courses-grid">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {courses.length === 0 ? (
-          <p className="no-courses">Вы пока не ведёте ни один курс.</p>
+          <p className="text-secondary col-span-full text-center py-8">Вы пока не ведёте ни один курс.</p>
         ) : (
           courses.map((course) => (
-            <div key={course.id} className="course-card horizontal-card">
-              <div className="course-image">
+            <div key={course.id} className="card p-0 overflow-hidden flex flex-col h-full">
+              <div className="h-40 bg-gray-200 overflow-hidden relative">
                 {course.picture ? (
                   <img
                     src={`/full/courses/${course.id}/picture`}
                     alt={course.name}
-                    onError={(e) => (e.target.src = "/default.png")}
+                    className="w-full h-full object-cover"
+                    onError={(e) => (e.target.src = "https://via.placeholder.com/400x150?text=No+Image")}
                   />
                 ) : (
-                  <div className="course-image-placeholder">Нет изображения</div>
+                  <div className="flex items-center justify-center h-full text-gray-500">Нет изображения</div>
                 )}
+                <div className="absolute top-2 right-2">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${course.isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    {course.isPublished ? "Опубликован" : "Черновик"}
+                  </span>
+                </div>
               </div>
-              <div className="course-content">
-                <h3>{course.name}</h3>
-                <p className="course-category">
+              <div className="p-6 flex-1 flex flex-col">
+                <h3 className="text-xl font-bold mb-2">{course.name}</h3>
+                <p className="text-sm text-gray-500 mb-4">
                   Категория: {course.category?.name || "Без категории"}
                 </p>
-                <p className="course-desc">
+                <p className="text-gray-600 mb-4 flex-1">
                   {course.description?.length > 100
                     ? course.description.slice(0, 100) + "..."
                     : course.description || "Нет описания"}
                 </p>
-                <div className="course-footer">
-                  {/* Статус курса с возможностью изменения */}
-                  <div className="course-status-section">
-                    <span className="course-status">
-                      Статус: {course.isPublished ? "Опубликован" : "Черновик"}
-                    </span>
-                    <button
-                      type="button"
-                      className={`btn-toggle-status ${course.isPublished ? "btn-unpublish" : "btn-publish"}`}
-                      onClick={() => handleTogglePublish(course.id, course.isPublished)}
-                      title={course.isPublished ? "Снять с публикации" : "Опубликовать"}
-                    >
-                      {course.isPublished ? "📤 Снять с публикации" : "📢 Опубликовать"}
-                    </button>
-                  </div>
+                
+                <div className="flex justify-between items-center mb-4 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                    onClick={() => handleTogglePublish(course.id, course.isPublished)}
+                  >
+                    {course.isPublished ? "Снять с публикации" : "Опубликовать"}
+                  </button>
+                </div>
 
-                  {/* Кнопки действий */}
-                  <div className="course-actions">
-                    <button
-                      type="button"
-                      className="btn-edit"
-                      onClick={() => handleEdit(course.id)}
-                    >
-                      Редактировать
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      onClick={() => handleDelete(course.id)}
-                    >
-                      Удалить
-                    </button>
-                  </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary flex-1"
+                    onClick={() => handleEdit(course.id)}
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => handleDelete(course.id)}
+                  >
+                    Удалить
+                  </button>
                 </div>
               </div>
             </div>

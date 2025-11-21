@@ -482,4 +482,53 @@ export default class UsersApi {
     }
 
 
+    /**
+     * Список всех пользователей
+     * Возвращает список всех пользователей (только для администраторов).
+     * @param {Object} opts Optional parameters
+     * @param {Number} [limit = 100] 
+     * @param {Number} [offset = 0] 
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with an object containing data of type {@link Array.<module:model/UserRead>} and HTTP response
+     */
+    listUsersUsersGetWithHttpInfo(opts) {
+      opts = opts || {};
+      let postBody = null;
+
+      let pathParams = {
+      };
+      let queryParams = {
+        'limit': opts['limit'],
+        'offset': opts['offset']
+      };
+      let headerParams = {
+      };
+      let formParams = {
+      };
+
+      let authNames = ['OAuth2PasswordBearer'];
+      let contentTypes = [];
+      let accepts = ['application/json'];
+      let returnType = [UserRead];
+      return this.apiClient.callApi(
+        '/users/', 'GET',
+        pathParams, queryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, null
+      );
+    }
+
+    /**
+     * Список всех пользователей
+     * Возвращает список всех пользователей (только для администраторов).
+     * @param {Object} opts Optional parameters
+     * @param {Number} opts.limit  (default to 100)
+     * @param {Number} opts.offset  (default to 0)
+     * @return {Promise} a {@link https://www.promisejs.org/|Promise}, with data of type {@link Array.<module:model/UserRead>}
+     */
+    listUsersUsersGet(opts) {
+      return this.listUsersUsersGetWithHttpInfo(opts)
+        .then(function(response_and_data) {
+          return response_and_data.data;
+        });
+    }
+
 }

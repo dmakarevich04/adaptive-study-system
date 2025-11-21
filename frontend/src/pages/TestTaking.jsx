@@ -246,9 +246,9 @@ export default function TestTaking() {
 
   if (error && !testResult) {
     return (
-      <div className="error">
-        <p>{error}</p>
-        <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
+      <div className="card text-center">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
           Вернуться к курсу
         </button>
       </div>
@@ -271,31 +271,29 @@ export default function TestTaking() {
     const recommendations = testResult.recommendations || [];
     
     return (
-      <div className="test-taking-page">
+      <div className="card">
         <div className="test-result">
-          <h1>Тест завершен!</h1>
-          <p>Результат: {percent}%</p>
-          <p>Правильных ответов: {score} из {questions.length}</p>
-          <p>Статус: {isPassed ? "Пройден" : "Не пройден"}</p>
-          <p>Время прохождения: {formatTime(finalTime)}</p>
-          
-          {/* Отображение рекомендаций */}
+          <h1 className="text-2xl font-bold mb-2">Тест завершен!</h1>
+          <p className="mb-1">Результат: <span className="font-bold">{percent}%</span></p>
+          <p className="mb-1">Правильных ответов: <span className="font-bold">{score}</span> из {questions.length}</p>
+          <p className="mb-1">Статус: <span className="font-bold">{isPassed ? "Пройден" : "Не пройден"}</span></p>
+          <p className="mb-4">Время прохождения: {formatTime(finalTime)}</p>
+
           {recommendations.length > 0 && (
-            <div className="recommendations">
-              <h2>Рекомендации:</h2>
+            <div className="card bg-yellow-100 mb-4">
+              <h2 className="font-bold mb-2">Рекомендации</h2>
               {recommendations.map((rec, index) => (
-                <div key={index} className={`recommendation recommendation-${rec.type}`}>
+                <div key={index} className="mb-2">
                   <p>{rec.message}</p>
-                  {/* Если есть topic_ids, можно добавить ссылки на темы */}
                   {rec.topic_ids && rec.topic_ids.length > 0 && (
-                    <div className="topic-links">
+                    <div className="mt-2 flex gap-2 flex-wrap">
                       {rec.topic_ids.map((topicId) => (
                         <button
                           key={topicId}
                           onClick={() => navigate(`/courses/${courseId}/topics/${topicId}/studying`)}
-                          className="topic-link-button"
+                          className="btn btn-secondary"
                         >
-                          Перейти к теме {topicId}
+                          Тема {topicId}
                         </button>
                       ))}
                     </div>
@@ -304,10 +302,12 @@ export default function TestTaking() {
               ))}
             </div>
           )}
-          
-          <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
-            Вернуться к курсу
-          </button>
+
+          <div className="flex justify-end">
+            <button className="btn btn-primary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+              Вернуться к курсу
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -316,18 +316,24 @@ export default function TestTaking() {
   // Экраны: информация о тесте или сам тест
   if (!testStarted) {
     return (
-      <div className="test-taking-page">
-        <div className="test-info">
-          <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
             ← Назад к курсу
           </button>
-          <h1>{test.name}</h1>
-          <p className="test-description">{test.description}</p>
-          <p className="test-duration">Продолжительность: {test.durationInMinutes} минут</p>
-          <p className="test-questions-count">Вопросов: {questions.length}</p>
-          <button className="start-test-button" onClick={handleStartTest}>
-            Начать тест
-          </button>
+          <div className="text-center flex-1">
+            <h1 className="text-2xl font-bold">{test.name}</h1>
+            <p className="text-sm text-gray-600">{test.description}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-gray-600">Продолжительность</div>
+            <div className="font-bold">{test.durationInMinutes} мин</div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">Вопросов: {questions.length}</div>
+          <button className="btn btn-primary" onClick={handleStartTest}>Начать тест</button>
         </div>
       </div>
     );
@@ -335,70 +341,66 @@ export default function TestTaking() {
 
   // Экран прохождения теста
   return (
-    <div className="test-taking-page">
-      <div className="test-header">
-        <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
-          ← Назад к курсу
-        </button>
-        <h1>{test.name}</h1>
-        <div className="test-timer">
-          <span>Время: {formatTime(elapsedSeconds)}</span>
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>← Назад</button>
+        <div className="text-center flex-1">
+          <h2 className="font-bold">{test.name}</h2>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-600">Время</div>
+          <div className="font-bold">{formatTime(elapsedSeconds)}</div>
         </div>
       </div>
 
-      <div className="test-questions">
+      <div className="space-y-4">
         {questions.map((question, index) => {
           const answers = questionAnswers[question.id] || [];
           const userAnswer = userAnswers[question.id];
 
           return (
-            <div key={question.id} className="question-item">
-              <h3>Вопрос {index + 1}</h3>
-              <p className="question-text">{question.text}</p>
-              
+            <div key={question.id} className="card">
+              <div className="flex items-start justify-between">
+                <h3 className="font-bold">Вопрос {index + 1}</h3>
+              </div>
+              <p className="mt-2 text-gray-700">{question.text}</p>
+
               {question.picture && (
                 <img 
                   src={`/full/questions/${question.id}/picture`}
                   alt="Вопрос"
                   onError={(e) => (e.target.style.display = "none")}
+                  className="mt-3 max-h-48 object-contain w-full"
                 />
               )}
 
               {question.questionType === "test" && answers.length > 0 && (
-                <div className="answers-list">
-                  {answers.map((answer) => {
-                    // Определяем, нужны ли чекбоксы (множественный выбор) или радиокнопки
-                    // Пока используем радиокнопки, так как бэкенд поддерживает только один ответ
-                    // Но можно добавить поддержку множественного выбора в будущем
-                    const isChecked = Array.isArray(userAnswer) 
-                      ? userAnswer.includes(answer.id)
-                      : userAnswer === answer.id;
-
-                    return (
-                      <label key={answer.id} className="answer-option">
-                        <input
-                          type="radio"
-                          name={`question-${question.id}`}
-                          value={answer.id}
-                          checked={!Array.isArray(userAnswer) && userAnswer === answer.id}
-                          onChange={() => handleAnswerChange(question.id, answer.id)}
-                          disabled={submitting}
-                        />
-                        <span>{answer.text}</span>
-                      </label>
-                    );
-                  })}
+                <div className="mt-3 space-y-2">
+                  {answers.map((answer) => (
+                    <label key={answer.id} className="flex items-center gap-3 p-2 border rounded hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name={`question-${question.id}`}
+                        value={answer.id}
+                        checked={!Array.isArray(userAnswer) && userAnswer === answer.id}
+                        onChange={() => handleAnswerChange(question.id, answer.id)}
+                        disabled={submitting}
+                      />
+                      <span>{answer.text}</span>
+                    </label>
+                  ))}
                 </div>
               )}
 
               {question.questionType === "open" && (
-                <div className="open-answer">
+                <div className="mt-3">
                   <textarea
                     value={userAnswer || ""}
                     onChange={(e) => handleOpenAnswerChange(question.id, e.target.value)}
                     placeholder="Введите ваш ответ..."
                     disabled={submitting}
                     rows={5}
+                    className="w-full"
                   />
                 </div>
               )}
@@ -407,15 +409,9 @@ export default function TestTaking() {
         })}
       </div>
 
-      <div className="test-footer">
-        <div className="test-timer-footer">
-          <span>Время: {formatTime(elapsedSeconds)}</span>
-        </div>
-        <button 
-          className="finish-test-button" 
-          onClick={handleFinishTest}
-          disabled={submitting}
-        >
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">Время: {formatTime(elapsedSeconds)}</div>
+        <button className="btn btn-primary" onClick={handleFinishTest} disabled={submitting}>
           {submitting ? "Отправка..." : "Завершить тест"}
         </button>
       </div>

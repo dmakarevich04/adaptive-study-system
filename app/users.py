@@ -186,3 +186,18 @@ def update_user_role(
     db.commit()
     db.refresh(user)
     return UserRead(id=user.id, login=user.login, name=user.name, surname=user.surname, roleId=user.roleId)
+
+@router.get(
+    '/',
+    response_model=list[UserRead],
+    summary='Список всех пользователей',
+    description='Возвращает список всех пользователей (только для администраторов).',
+)
+def list_users(
+    db: Session = Depends(get_db),
+    current_admin=Depends(require_role('admin')),
+    limit: int = 100,
+    offset: int = 0
+):
+    users = db.query(UserModelDecl).offset(offset).limit(limit).all()
+    return users

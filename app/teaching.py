@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -918,9 +919,69 @@ def create_topic_content(
     _, ext = os.path.splitext(file.filename)
     filename = f"{uuid.uuid4().hex}{ext}"
     dest_path = os.path.join(TOPIC_UPLOAD_DIR, filename)
+    # ensure directory exists and is writable
+    try:
+        dest_dir = os.path.dirname(dest_path)
+        os.makedirs(dest_dir, exist_ok=True)
+    except PermissionError:
+        logging.exception("Permission denied while creating upload directory: %s", os.path.dirname(dest_path))
+        raise HTTPException(status_code=500, detail="Server permission error: cannot create upload directory")
+    except Exception:
+        logging.exception("Failed to ensure upload directory exists: %s", os.path.dirname(dest_path))
+        raise HTTPException(status_code=500, detail="Server error while preparing upload directory")
+
+    # Diagnostics: log directory ownership/mode and process uid/gid, attempt to adjust perms
+    try:
+        try:
+            stat = os.stat(dest_dir)
+            logging.info(
+                "Upload dir stat: %s uid=%s gid=%s mode=%o",
+                dest_dir,
+                stat.st_uid,
+                stat.st_gid,
+                stat.st_mode & 0o777,
+            )
+        except Exception:
+            logging.exception("Failed to stat upload directory: %s", dest_dir)
+
+        try:
+            proc_uid = os.geteuid()
+            proc_gid = os.getegid()
+            logging.info("Process euid/egid: %s/%s", proc_uid, proc_gid)
+        except Exception:
+            logging.exception("Failed to get process uid/gid")
+
+        # Try to set directory permissions to 775 to help containerized / shared mounts
+        try:
+            os.chmod(dest_dir, 0o775)
+            logging.info("Attempted to set chmod 775 on %s", dest_dir)
+        except PermissionError:
+            logging.warning("Permission denied when attempting chmod on %s", dest_dir)
+        except Exception:
+            logging.exception("Unexpected error during chmod on %s", dest_dir)
+    except Exception:
+        logging.exception("Unexpected diagnostics failure for upload dir: %s", dest_dir)
+
     try:
         with open(dest_path, "wb") as out_f:
             shutil.copyfileobj(file.file, out_f)
+    except PermissionError:
+        logging.exception("Permission denied when writing uploaded file to: %s", dest_path)
+        # ensure we don't leave a partial file
+        try:
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+        except Exception:
+            logging.exception("Failed to remove partial uploaded file: %s", dest_path)
+        raise HTTPException(status_code=500, detail="Server permission error while saving uploaded file")
+    except Exception:
+        logging.exception("Failed to save uploaded file to: %s", dest_path)
+        try:
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+        except Exception:
+            logging.exception("Failed to remove partial uploaded file after error: %s", dest_path)
+        raise HTTPException(status_code=500, detail="Server error while saving uploaded file")
     finally:
         try:
             file.file.close()

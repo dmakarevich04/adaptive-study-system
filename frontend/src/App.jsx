@@ -11,6 +11,7 @@ import TestEdit from "./pages/TestEdit.jsx";
 import Studying from "./pages/Studying.jsx";
 import TopicStudying from "./pages/TopicStudying.jsx";
 import TestTaking from "./pages/TestTaking.jsx";
+import AdminPanel from "./pages/AdminPanel.jsx";
 export const UserContext = createContext();
 const usersApi = new UsersApi();
 
@@ -46,7 +47,7 @@ function App() {
   }, []);
 
   if (loadingUser) {
-    return <div className="loading">Загрузка...</div>;
+    return <div className="flex items-center justify-center h-screen">Загрузка...</div>;
   }
 
   return (
@@ -66,9 +67,10 @@ function App() {
               <Route path="/my-learning" element={<MyCourses />} />
               <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
               <Route path="courses/:courseId/tests/:testId/edit" element={<TestEdit />} />
+              <Route path="/admin" element={<AdminPanel />} />
             </Routes>
           </main>
-          <footer>© 2025 Adaptive Study Platform</footer>
+          <footer className="text-center p-4 text-gray-500">© 2025 Adaptive Study Platform</footer>
         </Router>
       </UserContext.Provider>
     </div>
@@ -79,17 +81,17 @@ function App() {
 function Header() {
   const { user } = useContext(UserContext);
   return (
-    <header className="header">
-      <div className="logo-block">
-        <img src="" alt="Лого" />
-        <span>EduFlex</span>
+    <header className="navbar">
+      <div className="flex items-center gap-4">
+        <span className="text-xl font-bold text-indigo-600">EduFlex</span>
       </div>
 
       {user && (
-        <nav className="nav">
-          <NavLink to="/courses" className="nav-link">Курсы</NavLink>
-          {user.roleId === 1 && <NavLink to="/my-learning" className="nav-link">Моё обучение</NavLink>}
-          {user.roleId === 2 && <NavLink to="/teaching" className="nav-link">Преподавание</NavLink>}
+        <nav className="nav-links">
+          <NavLink to="/courses" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Курсы</NavLink>
+          {user.roleId === 1 && <NavLink to="/my-learning" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Моё обучение</NavLink>}
+          {user.roleId === 2 && <NavLink to="/teaching" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Преподавание</NavLink>}
+          {user.roleId === 3 && <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Админ панель</NavLink>}
         </nav>
       )}
 
@@ -119,7 +121,7 @@ function LogoutButton() {
       });
   };
 
-  return <button className="logout-btn" onClick={handleLogout}>Выйти</button>;
+  return <button className="btn btn-secondary" onClick={handleLogout}>Выйти</button>;
 }
 
 // --- Компонент Placeholder ---

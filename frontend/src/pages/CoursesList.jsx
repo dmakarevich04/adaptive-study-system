@@ -59,39 +59,51 @@ function CoursesList() {
   }, []);
 
   if (loading) {
-    return <div className="loading">Загрузка курсов...</div>;
+    return <div className="flex items-center justify-center h-64">Загрузка курсов...</div>;
   }
 
   return (
-    <div className="courses-page">
-      <h1 className="courses-title">Все курсы</h1>
-      <div className="courses-grid">
+    <div>
+      <h1 className="mb-4">Все курсы</h1>
+      <div className="grid">
         {courses.length === 0 ? (
-          <p className="no-courses">Пока нет доступных курсов.</p>
+          <p className="text-secondary">Пока нет доступных курсов.</p>
         ) : (
           courses.map((course) => (
             <div
               key={course.id}
-              className="course-card"
+              className="card"
+              style={{ cursor: 'pointer', padding: 0, overflow: 'hidden' }}
               onClick={() => navigate(`/courses/${course.id}`)}
             >
-              <div className="course-image">
+              <div style={{ height: '200px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
                 <img
                   src={course.picture ? `/full/courses/${course.id}/picture` : "/default.png"}
                   alt={course.name}
-                  onError={(e) => (e.target.src = "/default.png")}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => (e.target.src = "https://via.placeholder.com/400x200?text=No+Image")}
                 />
               </div>
-              <div className="course-content">
-                <h2 className="course-name">{course.name}</h2>
-                <b className="course-category">
-                  Категория: {course.category?.name || "Без категории"}
-                </b>
-                <h4 className="course-desc">
+              <div style={{ padding: '1.5rem' }}>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 style={{ margin: 0 }}>{course.name}</h3>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    backgroundColor: '#e0e7ff', 
+                    color: '#4338ca', 
+                    padding: '0.25rem 0.5rem', 
+                    borderRadius: '9999px',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {course.category?.name || "Без категории"}
+                  </span>
+                </div>
+                <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
                   {course.description.length > 100
                     ? course.description.slice(0, 100) + "..."
                     : course.description}
-                </h4>
+                </p>
+                <button className="btn btn-primary" style={{ width: '100%' }}>Подробнее</button>
               </div>
             </div>
           ))

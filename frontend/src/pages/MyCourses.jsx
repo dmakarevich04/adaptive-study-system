@@ -86,15 +86,15 @@ function MyEnrolledCourses() {
   }, []);
 
   if (loading) {
-    return <div className="loading">Загрузка ваших курсов...</div>;
+    return <div className="flex items-center justify-center h-64">Загрузка ваших курсов...</div>;
   }
 
   return (
-    <div className="my-courses-page">
-      <h1 className="courses-title">Мои курсы</h1>
-      <div className="my-courses-grid">
+    <div>
+      <h1 className="mb-4">Мои курсы</h1>
+      <div className="grid">
         {courses.length === 0 ? (
-          <p className="no-courses">Вы пока не записаны ни на один курс.</p>
+          <p className="text-secondary">Вы пока не записаны ни на один курс.</p>
         ) : (
           courses.map((course) => {
             const startDate = course.enrollment?.dateStarted 
@@ -107,38 +107,35 @@ function MyEnrolledCourses() {
             return (
               <div
                 key={course.id}
-                className="course-card horizontal-card"
+                className="card"
+                style={{ cursor: 'pointer', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
                 onClick={() => navigate(`/courses/${course.id}`)}
               >
-                <div className="course-image">
+                <div style={{ height: '150px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
                   <img
                     src={course.picture ? `/full/courses/${course.id}/picture` : "/default.png"}
                     alt={course.name}
-                    onError={(e) => (e.target.src = "/default.png")}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => (e.target.src = "https://via.placeholder.com/400x150?text=No+Image")}
                   />
                 </div>
-                <div className="course-content">
-                  <h3>{course.name}</h3>
-                  <p className="course-category">
+                <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ marginBottom: '0.5rem' }}>{course.name}</h3>
+                  <p className="text-secondary" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
                     Категория: {course.category?.name || "Без категории"}
                   </p>
-                  <p className="course-desc">
+                  <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: '1rem', flex: 1 }}>
                     {course.description?.length > 100
                       ? course.description.slice(0, 100) + "..."
                       : course.description}
                   </p>
-                  <div className="course-footer">
-                    <span className="course-dates">
-                      Дата начала: {startDate || "--"}
-                    </span>
-                    {endDate && (
-                      <span className="course-dates">
-                        Дата окончания: {endDate}
-                      </span>
-                    )}
+                  <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    <div>Дата начала: {startDate || "--"}</div>
+                    {endDate && <div>Дата окончания: {endDate}</div>}
                   </div>
                   <button
-                    className="study-button"
+                    className="btn btn-primary"
+                    style={{ width: '100%' }}
                     onClick={(e) => {
                       e.stopPropagation(); // Предотвращаем срабатывание onClick на карточке
                       navigate(`/courses/${course.id}/studying`);

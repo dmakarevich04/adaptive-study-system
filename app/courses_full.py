@@ -44,6 +44,7 @@ from .schemas import (
     UserCourseKnowledgeRead,
 )
 from .utils import generate_unique_id, compute_test_score, compute_module_knowledge, compute_course_knowledge
+from sqlalchemy.exc import IntegrityError
 
 TEST_PASS_PERCENT = int(os.environ.get(
     "TEST_PASS_PERCENT", "80"))  # Изменено с "50" на "80"
@@ -753,21 +754,25 @@ def submit_test(
         correct_from_answers = sum(
             1 for ua in user_answers_all if ua.isCorrect)
 
-        # Используем правильный подсчет: правильные ответы / всего вопросов
-        if total_questions > 0:
-            precise_score = (correct_from_answers / total_questions) * 100.0
-        else:
-            precise_score = 0.0
+        # Новый пересчет: используем формулу из utils.compute_test_score
+        breakdown = compute_test_score(db, test_id, result.id)
 
         logger.info(
-            f"Computed precise_score: {precise_score}, correct_from_answers: {correct_from_answers}, total_questions: {total_questions}")
+            "Score breakdown: percent=%s, weighted_points=%s/%s, accuracy=%.2f, time_factor=%.2f",
+            breakdown.percent,
+            breakdown.weighted_points,
+            breakdown.max_points,
+            breakdown.accuracy_ratio,
+            breakdown.time_factor,
+        )
 
-        # Используем максимум из двух для более справедливой оценки
-        final_percent = max(precise_score, percent)
-
-        result.result = int(round(final_percent))
-        result.isPassed = final_percent >= TEST_PASS_PERCENT
-        result.scoreInPoints = correct  # Убеждаемся, что scoreInPoints не перезаписывается
+        result.result = int(round(breakdown.percent))
+        result.isPassed = breakdown.percent >= TEST_PASS_PERCENT
+        # Оставляем `scoreInPoints` как количество правильных ответов (raw count)
+        # чтобы интерфейс отображал корректное соотношение "Правильных ответов: X из Y".
+        # Подробная разбивка (weighted points, time_factor и т.д.) логируется выше,
+        # но в текущей схеме БД нет отдельного поля для хранения взвешенных баллов.
+        result.scoreInPoints = int(correct)
 
         logger.info(
             f"Final result: percent={result.result}, isPassed={result.isPassed}, scoreInPoints={result.scoreInPoints}")
@@ -813,8 +818,29 @@ def submit_test(
             module_passed.isPassed = bool(result.isPassed)
             module_passed.userId = uid
             db.add(module_passed)
-            db.commit()
-            db.refresh(module_passed)
+            try:
+                db.commit()
+                db.refresh(module_passed)
+            except IntegrityError as ie:
+                # Handle possible schema-level unique constraint issues (existing DB may
+                # have an unexpected unique index on userId). In that case, try to find
+                # the conflicting record by userId and update it instead of inserting.
+                db.rollback()
+                existing_conflict = db.query(ModulePassedModel).filter(ModulePassedModel.userId == uid).first()
+                if existing_conflict:
+                    existing_conflict.moduleId = test.moduleId
+                    existing_conflict.isPassed = bool(result.isPassed)
+                    db.add(existing_conflict)
+                    db.commit()
+                    db.refresh(existing_conflict)
+                    module_passed = existing_conflict
+                    # Log the recovery action
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "IntegrityError inserting ModulePassed; updated existing record for user=%s", uid)
+                else:
+                    # Re-raise if we cannot resolve the conflict
+                    raise
 
     # Trigger recompute of aggregated module/course knowledge for this user
     try:

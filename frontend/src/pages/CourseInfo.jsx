@@ -9,6 +9,7 @@ export default function CourseInfo() {
   const [course, setCourse] = useState(null);
   const [category, setCategory] = useState(null);
   const [modules, setModules] = useState([]);
+  const [moduleKnowledgeMap, setModuleKnowledgeMap] = useState({});
   const [courseKnowledge, setCourseKnowledge] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -76,6 +77,19 @@ export default function CourseInfo() {
         // Загрузка модулей
         const modulesData = await teachingApi.listModulesForCourseFullCoursesCourseIdModulesGet(id);
         setModules(modulesData);
+
+        // Загружаем уровень знаний по модулям (мои)
+        try {
+          const moduleKnowledge = await fullApi.myModuleKnowledgeFullMeModulesKnowledgeGet();
+          const map = {};
+          (moduleKnowledge || []).forEach((m) => {
+            map[m.moduleId] = Math.round(m.knowledge);
+          });
+          setModuleKnowledgeMap(map);
+        } catch (err) {
+          console.error("Ошибка загрузки уровня знаний модулей:", err);
+          setModuleKnowledgeMap({});
+        }
 
         // Если пользователь записан — загрузим уровень знаний по курсу (мой уровень)
         try {
@@ -201,6 +215,15 @@ export default function CourseInfo() {
                 <div>
                   <h3 className="font-bold">{module.name}</h3>
                   <p className="text-sm text-gray-600">{module.description || "Описание отсутствует"}</p>
+
+                  {enrolled && (
+                    <div className="mt-2" style={{ maxWidth: 420 }}>
+                      <div className="text-sm text-gray-600">Прогресс: {moduleKnowledgeMap[module.id] ?? 0}%</div>
+                      <div className="progress-track mt-1">
+                        <div className="progress-fill" style={{ width: `${moduleKnowledgeMap[module.id] ?? 0}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   {enrolled ? (

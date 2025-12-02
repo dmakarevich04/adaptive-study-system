@@ -1044,13 +1044,9 @@ def create_test(
     if module_id is None and course_id is None:
         raise HTTPException(status_code=400, detail="Test must specify module or course")
     if module_id is not None:
-        exists = db.query(TestModel).filter(TestModel.moduleId == module_id).first()
-        if exists:
-            raise HTTPException(status_code=400, detail="Test for this module already exists")
+        pass
     if course_id is not None:
-        exists_course = db.query(TestModel).filter(TestModel.courseId == course_id).first()
-        if exists_course:
-            raise HTTPException(status_code=400, detail="Test for this course already exists")
+        pass
     if module_id is not None:
         module = db.get(ModuleModel, module_id)
         if not module:
@@ -1165,26 +1161,12 @@ def update_test(
             raise HTTPException(status_code=404, detail="Course not found")
         if int(current.id) != int(course_for_test.authorId):
             raise HTTPException(status_code=403, detail="Only author can modify test")
-        exists = (
-            db.query(TestModel)
-            .filter(TestModel.moduleId == module_id, TestModel.id != test_id)
-            .first()
-        )
-        if exists:
-            raise HTTPException(status_code=400, detail="Test for this module already exists")
     if course_id is not None:
         course_for_test = db.get(CourseModel, course_id)
         if not course_for_test:
             raise HTTPException(status_code=404, detail="Course not found")
         if int(current.id) != int(course_for_test.authorId):
             raise HTTPException(status_code=403, detail="Only author can modify test")
-        exists_course = (
-            db.query(TestModel)
-            .filter(TestModel.courseId == course_id, TestModel.id != test_id)
-            .first()
-        )
-        if exists_course:
-            raise HTTPException(status_code=400, detail="Test for this course already exists")
     test.name = payload.name
     test.description = payload.description
     test.durationInMinutes = payload.durationInMinutes

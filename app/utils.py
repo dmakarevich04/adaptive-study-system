@@ -152,14 +152,15 @@ def compute_test_score(db, test_id: int, test_result_id: int) -> TestScoreBreakd
 def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
     """Aggregate the learner's mastery level for a module.
 
-    Формула:
-    - Для каждого теста модуля берём *последний* результат пользователя в процентах.
-      Новый неудачный проход автоматически уменьшит среднее, поэтому уровень знаний
-      падает при провале теста.
-    - Уровень знаний модуля = среднее арифметическое процентов по всем тестам
-      модуля. Тесты без попыток игнорируются.
-    Полученное значение записывается в `UserModuleKnowledge` и переписывает
-    предыдущие данные.
+        Формула:
+        - Для каждого теста модуля берём все попытки пользователя и вычисляем средний
+            процент (average of all attempts for that test). Таким образом каждое
+            прохождение влияет на средний по тесту — и более плохие попытки могут
+            снизить среднее.
+        - Уровень знаний модуля = среднее арифметическое средних процентов по всем
+            тестам модуля. Тесты без попыток игнорируются.
+        Полученное значение записывается в `UserModuleKnowledge` и переписывает
+        предыдущие данные.
     """
 
     import logging
@@ -177,7 +178,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
 
     scores = []
     for t in tests:
-        # pick latest test result for this user and test
+        # pick latest test result for this user and test (module-level ignores older attempts)
         tr = (
             db.query(TestResultModel)
             .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
@@ -189,8 +190,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
                 f"No test result found for test {t.id} (test name: {getattr(t, 'name', 'N/A')})")
             continue
 
-        # Используем процент из TestResult.result вместо compute_test_score
-        # result.result уже содержит правильный процент за весь тест
+        # Use the stored percent in TestResult.result (latest attempt)
         sc = float(getattr(tr, 'result', 0) or 0)
         logger.info(
             f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): result={sc}%, result.id={tr.id}, isPassed={getattr(tr, 'isPassed', False)}")
@@ -260,30 +260,41 @@ def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
     Полученный процент сохраняется в `UserCourseKnowledge`.
     """
 
-    modules = db.query(ModuleModel).filter(
-        ModuleModel.courseId == course_id).all()
-    if not modules:
-        return 0.0
-    module_knowledges = []
-    for m in modules:
-        # try to find existing knowledge
-        existing = (
-            db.query(UserModuleKnowledgeModel)
-            .filter(UserModuleKnowledgeModel.userId == user_id, UserModuleKnowledgeModel.moduleId == m.id)
-            .first()
-        )
-        if existing:
-            module_knowledges.append(existing.knowledge)
-        else:
-            # compute on demand
-            k = compute_module_knowledge(db, user_id, m.id)
-            module_knowledges.append(k)
+    # Course-level knowledge should account for all attempts across tests
+    # Gather all tests that belong to this course (directly) or to its modules
+    modules = db.query(ModuleModel).filter(ModuleModel.courseId == course_id).all()
+    module_ids = [m.id for m in modules] if modules else []
 
-    if not module_knowledges:
+    from sqlalchemy import or_, literal
+
+    if module_ids:
+        tests = db.query(TestModel).filter(
+            or_(TestModel.courseId == course_id, TestModel.moduleId.in_(module_ids))
+        ).all()
+    else:
+        tests = db.query(TestModel).filter(TestModel.courseId == course_id).all()
+
+    if not tests:
+        return 0.0
+
+    # For each test compute average percent across all attempts by the user
+    test_averages = []
+    for t in tests:
+        trs = (
+            db.query(TestResultModel)
+            .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
+            .all()
+        )
+        if not trs:
+            continue
+        attempt_percents = [float(getattr(r, 'result', 0) or 0) for r in trs]
+        test_avg = float(sum(attempt_percents)) / float(len(attempt_percents))
+        test_averages.append(test_avg)
+
+    if not test_averages:
         knowledge = 0.0
     else:
-        knowledge = float(sum(module_knowledges)) / \
-            float(len(module_knowledges))
+        knowledge = float(sum(test_averages)) / float(len(test_averages))
 
     existing_course = (
         db.query(UserCourseKnowledgeModel)

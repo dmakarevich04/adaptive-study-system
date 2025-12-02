@@ -342,21 +342,19 @@ export default function Studying() {
 
             <p className="mt-3 text-gray-700" style={{ lineHeight: 1.6 }}>{course.description}</p>
 
-            {!isAuthor && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">Уровень знаний: {courseKnowledge}%</div>
-                  <div className="text-sm text-gray-600">{courseKnowledge === 100 ? 'Выполнено' : ''}</div>
-                </div>
-
-                <div className="mt-2" style={{ maxWidth: '720px' }}>
-                  <div className="progress-track" style={{ height: '0.75rem' }}>
-                    <div className="progress-fill" style={{ width: `${courseKnowledge}%` }} />
-                  </div>
-                  <div className="progress-text">Прогресс курса основан на агрегированных знаниях по модулям</div>
-                </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">Уровень знаний: {courseKnowledge}%</div>
+                <div className="text-sm text-gray-600">{courseKnowledge === 100 ? 'Выполнено' : ''}</div>
               </div>
-            )}
+
+              <div className="mt-2" style={{ maxWidth: '720px' }}>
+                <div className="progress-track" style={{ height: '0.75rem' }}>
+                  <div className="progress-fill" style={{ width: `${courseKnowledge}%` }} />
+                </div>
+                <div className="progress-text">Прогресс курса основан на агрегированных знаниях по модулям</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -25,9 +25,28 @@ _MAX_SAFE_INT = (1 << 53) - 1  # 9007199254740991
 
 def generate_random_id() -> int:
     """Return a positive random integer that fits in Postgres BIGINT and JavaScript safe range."""
-    value = uuid4().int & _MAX_SAFE_INT
-    # Avoid returning 0; bump to 1 if masking yields zero.
-    return value or 1
+    # Use a time-based id (microseconds since epoch) with a small random
+    # offset so newer records have larger ids in practice. This makes
+    # ordering by `id` behave like ordering by creation time for most cases.
+    # Fall back to a UUID-based value if time-based generation fails.
+    try:
+        import time
+        import random
+
+        base = int(time.time() * 1_000_000)
+        offset = random.randint(0, 999)
+        value = base + offset
+        # Clamp to safe JS integer range
+        if value <= 0:
+            raise ValueError
+        if value > _MAX_SAFE_INT:
+            # fallback to uuid when time-based value would overflow
+            raise OverflowError
+        return value
+    except Exception:
+        # last-resort: deterministic UUID masking as before
+        value = uuid4().int & _MAX_SAFE_INT
+        return value or 1
 
 
 def generate_unique_id(db_session, model_cls) -> int:
@@ -162,7 +181,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         tr = (
             db.query(TestResultModel)
             .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
-            .order_by(TestResultModel.id.desc())
+            .order_by(TestResultModel.created_at.desc())
             .first()
         )
         if not tr:

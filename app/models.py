@@ -1,6 +1,7 @@
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, BigInteger, Boolean, Text, Date, ForeignKey, Integer
-from sqlalchemy import Float
+from sqlalchemy import Float, DateTime
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -98,10 +99,11 @@ class TestResult(Base):
     id = Column(BigInteger, primary_key=True)
     scoreInPoints = Column(BigInteger, nullable=False)
     isPassed = Column(Boolean, nullable=False)
-    durationInMinutes = Column(BigInteger, nullable=False)
+    durationInMinutes = Column(Float, nullable=False)
     result = Column(BigInteger, nullable=False)
     testId = Column(BigInteger, ForeignKey('Test.id'))
     userId = Column(BigInteger, ForeignKey('User.id'))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class UserAnswer(Base):
     __tablename__ = 'UserAnswer'

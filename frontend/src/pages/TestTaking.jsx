@@ -192,16 +192,14 @@ export default function TestTaking() {
         }
       }
 
-      // Вычисляем время прохождения в минутах
-      // Если меньше 1 минуты (60 секунд), записываем 0, иначе округляем вниз до целых минут
-      const timeSpentInMinutes = elapsedSeconds < 60 ? 0 : Math.floor(elapsedSeconds / 60);
+      // Вычисляем время прохождения в минутах (дробные минуты для точности)
+      const timeSpentInMinutes = elapsedSeconds / 60.0; // e.g. 90s -> 1.5
 
       console.log("Отправляемые ответы:", answersToSubmit);
       console.log("Время прохождения (секунды):", elapsedSeconds);
       console.log("Время прохождения (минуты):", timeSpentInMinutes);
 
-      // Отправляем тест с временем прохождения
-      // Нужно передать время в теле запроса вместе с ответами
+      // Отправляем тест с дробным временем прохождения
       const requestBody = {
         answers: answersToSubmit,
         duration_in_minutes: timeSpentInMinutes
@@ -269,6 +267,9 @@ export default function TestTaking() {
     const percent = testResult.percent || testResult.result || 0;
     const isPassed = testResult.passed !== undefined ? testResult.passed : testResult.isPassed;
     const recommendations = testResult.recommendations || [];
+    // optionally returned by backend after recomputing aggregates
+    const moduleKnowledge = testResult.module_knowledge ?? null;
+    const courseKnowledge = testResult.course_knowledge ?? null;
     
     return (
       <div className="card">
@@ -308,6 +309,13 @@ export default function TestTaking() {
               Вернуться к курсу
             </button>
           </div>
+          {(moduleKnowledge !== null || courseKnowledge !== null) && (
+            <div className="mt-4 text-sm text-gray-700">
+              {moduleKnowledge !== null && <p>Обновлённый уровень знаний модуля: <strong>{Math.round(moduleKnowledge)}%</strong></p>}
+              {courseKnowledge !== null && <p>Обновлённый уровень знаний курса: <strong>{Math.round(courseKnowledge)}%</strong></p>}
+              <p className="mt-2 text-xs text-gray-500">При возвращении на страницу курса показатели будут подтянуты автоматически.</p>
+            </div>
+          )}
         </div>
       </div>
     );

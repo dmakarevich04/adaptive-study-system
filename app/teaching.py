@@ -1122,7 +1122,7 @@ def list_results_for_test(
         raise HTTPException(status_code=404, detail="Test not found")
     uid = int(current.id)
     if current.role == "admin":
-        return db.query(TestResultModel).filter(TestResultModel.testId == test_id).all()
+        return db.query(TestResultModel).filter(TestResultModel.testId == test_id).order_by(TestResultModel.created_at.desc()).all()
     course_obj = None
     if test.courseId:
         course_obj = db.get(CourseModel, test.courseId)
@@ -1130,7 +1130,7 @@ def list_results_for_test(
         module = db.get(ModuleModel, test.moduleId)
         course_obj = db.get(CourseModel, module.courseId) if module else None
     if course_obj and int(course_obj.authorId) == uid:
-        return db.query(TestResultModel).filter(TestResultModel.testId == test_id).all()
+        return db.query(TestResultModel).filter(TestResultModel.testId == test_id).order_by(TestResultModel.created_at.desc()).all()
     raise HTTPException(status_code=403, detail="Not authorized")
 
 @router.put(

@@ -18,6 +18,7 @@ export default function Studying() {
   const [moduleKnowledgeMap, setModuleKnowledgeMap] = useState({});
   const [moduleLocks, setModuleLocks] = useState({});
   const [isAuthor, setIsAuthor] = useState(false);
+  const [bestTestResults, setBestTestResults] = useState({});
   const [courseKnowledge, setCourseKnowledge] = useState(0);
   const [allModulesPassed, setAllModulesPassed] = useState(false); // Все ли модули пройдены
 
@@ -105,7 +106,7 @@ export default function Studying() {
         }
         setModuleTests(testsMap);
 
-        // Загружаем уровень знаний по модулям (мои)
+        // Загружаем уровень знаний по модулям (мои) и мои результаты тестов
         try {
           const moduleKnowledge = await fullApi.myModuleKnowledgeFullMeModulesKnowledgeGet();
           const map = {};
@@ -113,6 +114,24 @@ export default function Studying() {
             map[m.moduleId] = Math.round(m.knowledge);
           });
           setModuleKnowledgeMap(map);
+
+          // additionally fetch my test results to determine best result per test
+          try {
+            const myResults = await fullApi.myResultsFullResultsGet();
+            const best = {};
+            (myResults || []).forEach((r) => {
+              const tId = r.testId;
+              const percent = r.result ?? r.percent ?? 0;
+              const isPassed = r.isPassed ?? r.passed ?? false;
+              if (!best[tId] || percent > best[tId].percent) {
+                best[tId] = { percent, isPassed };
+              }
+            });
+            setBestTestResults(best);
+          } catch (err) {
+            console.debug("Не удалось загрузить мои результаты:", err?.message || err);
+          }
+
         } catch (err) {
           console.error("Ошибка загрузки уровня знаний модулей:", err);
           setModuleKnowledgeMap({});
@@ -352,7 +371,19 @@ export default function Studying() {
             </div>
             <div>
               {allModulesPassed || isAuthor ? (
-                <button className="btn btn-primary" onClick={() => handleTestClick(courseTest.id)}>Пройти тест</button>
+                (() => {
+                  const best = bestTestResults[courseTest.id];
+                  const blockedPerfect = best && best.percent === 100 && best.isPassed;
+                  return (
+                    <button
+                      className={blockedPerfect ? "btn btn-secondary" : "btn btn-primary"}
+                      onClick={() => !blockedPerfect && handleTestClick(courseTest.id)}
+                      disabled={blockedPerfect}
+                    >
+                      {blockedPerfect ? `Пройден (100%)` : `Пройти тест`}
+                    </button>
+                  );
+                })()
               ) : (
                 <button className="btn btn-secondary" disabled>Тест заблокирован</button>
               )}
@@ -436,7 +467,19 @@ export default function Studying() {
                                   <div className="font-medium">{t.name}</div>
                                   <div className="text-sm text-gray-600">{t.description}</div>
                                 </div>
-                                <button className="btn btn-primary btn-sm" onClick={() => handleTestClick(t.id, module.id)}>Пройти тест</button>
+                                {(() => {
+                                  const best = bestTestResults[t.id];
+                                  const blockedPerfect = best && best.percent === 100 && best.isPassed;
+                                  return (
+                                    <button
+                                      className={blockedPerfect ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
+                                      onClick={() => !blockedPerfect && handleTestClick(t.id, module.id)}
+                                      disabled={blockedPerfect}
+                                    >
+                                      {blockedPerfect ? `Пройден (100%)` : `Пройти тест`}
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             ))}
                           </div>

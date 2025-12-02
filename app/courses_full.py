@@ -425,7 +425,7 @@ def admin_get_module_passed(mp_id: int, db: Session = Depends(get_db)):
 )
 def my_results(current=Depends(get_current_user), db: Session = Depends(get_db)):
     uid = int(current.id)
-    return db.query(TestResultModel).filter(TestResultModel.userId == uid).all()
+    return db.query(TestResultModel).filter(TestResultModel.userId == uid).order_by(TestResultModel.created_at.desc()).all()
 
 
 @router.get(
@@ -522,7 +522,11 @@ def submit_test(
 
     # Извлекаем answers и duration_in_minutes из body
     answers = request_body.get("answers", {})
-    duration_in_minutes = request_body.get("duration_in_minutes", 0)
+    # Expect duration_in_minutes as a number (can be fractional). Use float for precision.
+    try:
+        duration_in_minutes = float(request_body.get("duration_in_minutes", 0) or 0)
+    except Exception:
+        duration_in_minutes = 0.0
 
     # Логирование для отладки
     import logging
@@ -531,11 +535,9 @@ def submit_test(
     # УБРАТЬ эту строку - questions еще не определен
     # logger.info(f"Question IDs in test: {[q.id for q in questions]}")
 
-    # Округляем время: если меньше 1 минуты, то 0, иначе целое число минут
-    if duration_in_minutes < 1:
-        duration_in_minutes = 0
-    else:
-        duration_in_minutes = int(duration_in_minutes)
+    # Keep fractional minutes (e.g. 90s -> 1.5). Clamp negatives to 0.
+    if duration_in_minutes < 0:
+        duration_in_minutes = 0.0
 
     test = db.get(TestModel, test_id)
     if not test:
@@ -843,6 +845,8 @@ def submit_test(
                     raise
 
     # Trigger recompute of aggregated module/course knowledge for this user
+    computed_knowledge = None
+    computed_course_knowledge = None
     try:
         # Убеждаемся, что result обновлен в базе данных
         # Делаем еще один refresh после всех коммитов
@@ -949,6 +953,8 @@ def submit_test(
         "passed": result.isPassed,
         "attempts": attempts_count + 1,
         "recommendations": recommendations,  # Добавить рекомендации
+        "module_knowledge": computed_knowledge,
+        "course_knowledge": computed_course_knowledge,
     }
 
 

@@ -178,23 +178,23 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
 
     scores = []
     for t in tests:
-        # pick latest test result for this user and test (module-level ignores older attempts)
-        tr = (
+        # collect all attempts for this user+test and use the best (maximum) percent
+        trs = (
             db.query(TestResultModel)
             .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
             .order_by(TestResultModel.created_at.desc())
-            .first()
+            .all()
         )
-        if not tr:
+        if not trs:
             logger.info(
                 f"No test result found for test {t.id} (test name: {getattr(t, 'name', 'N/A')})")
             continue
 
-        # Use the stored percent in TestResult.result (latest attempt)
-        sc = float(getattr(tr, 'result', 0) or 0)
+        attempt_percents = [float(getattr(r, 'result', 0) or 0) for r in trs]
+        best_percent = max(attempt_percents)
         logger.info(
-            f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): result={sc}%, result.id={tr.id}, isPassed={getattr(tr, 'isPassed', False)}")
-        scores.append(sc)
+            f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): attempts={len(trs)}, best={best_percent}%, attempts_summary={[{'id': r.id, 'result': getattr(r, 'result', None)} for r in trs]}")
+        scores.append(best_percent)
 
     if not scores:
         knowledge = 0.0
@@ -278,7 +278,11 @@ def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
         return 0.0
 
     # For each test compute average percent across all attempts by the user
+    import logging
+    logger = logging.getLogger(__name__)
+
     test_averages = []
+    perfect_found = False
     for t in tests:
         trs = (
             db.query(TestResultModel)
@@ -287,12 +291,25 @@ def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
         )
         if not trs:
             continue
+
+        # If any attempt is a perfect (100%) passed attempt, skip this test in course average
+        has_perfect = any((float(getattr(r, 'result', 0) or 0) >= 100.0) and getattr(r, 'isPassed', False) for r in trs)
+        if has_perfect:
+            perfect_found = True
+            logger.info(f"Skipping test {t.id} in course average because of perfect attempt(s)")
+            continue
+
         attempt_percents = [float(getattr(r, 'result', 0) or 0) for r in trs]
         test_avg = float(sum(attempt_percents)) / float(len(attempt_percents))
         test_averages.append(test_avg)
 
     if not test_averages:
-        knowledge = 0.0
+        # If there were no non-perfect tests but at least one perfect test exists,
+        # treat course knowledge as 100% (everything checked out by perfect attempts).
+        if perfect_found:
+            knowledge = 100.0
+        else:
+            knowledge = 0.0
     else:
         knowledge = float(sum(test_averages)) / float(len(test_averages))
 

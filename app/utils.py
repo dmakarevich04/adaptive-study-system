@@ -232,13 +232,18 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         .first()
     )
     if mp:
-        if knowledge >= 80.0:
+        # ВАЖНО: статус прохождения модуля делаем монотонным.
+        # Если модуль уже был помечен как пройден, мы больше не "откатываем" isPassed в False
+        # даже если knowledge опустился ниже порога. Это предотвращает повторную блокировку
+        # следующих модулей после неудачных пересдач.
+        if knowledge >= 80.0 and not mp.isPassed:
             mp.isPassed = True
             mp.datePassed = date.today()
             logger.info(f"Module {module_id} marked as passed (knowledge >= 80%)")
         else:
-            mp.isPassed = False
-            logger.info(f"Module {module_id} not passed (knowledge < 80%)")
+            logger.info(
+                f"Module {module_id} pass status unchanged (isPassed={mp.isPassed}, knowledge={knowledge}%)"
+            )
         db.add(mp)
 
     db.commit()
@@ -249,48 +254,40 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
 def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
     """Aggregate course-level knowledge by averaging module mastery.
 
-    Формула:
-    - Берём все модули курса и их `UserModuleKnowledge` (если значения отсутствуют,
-      пересчитываем на лету).
-    - Уровень знаний курса = среднее арифметическое знаний по модулям.
-      Если на модуль ещё не было попыток, он в среднее не попадает.
+    Новая формула:
+    - Берём все модули курса.
+    - Для каждого модуля берём `UserModuleKnowledge.knowledge` для пользователя.
+      Если записи нет, пересчитываем через `compute_module_knowledge` (что даёт
+      0.0, если у модуля ещё нет попыток).
+    - Уровень знаний курса = среднее арифметическое знаний по всем модулям курса.
+      Таким образом, модуль без знаний даёт вклад 0.
     Полученный процент сохраняется в `UserCourseKnowledge`.
     """
 
-    # Course-level knowledge: for each module take the latest TestResult across
-    # all tests in that module (by created_at). If none exists for a module -> 0.
-    # Then course knowledge = arithmetic mean of these per-module values.
     modules = db.query(ModuleModel).filter(ModuleModel.courseId == course_id).all()
     if not modules:
         return 0.0
 
-    per_module_values = []
-    from sqlalchemy import desc
-    for m in modules:
-        # gather test ids for this module
-        tests = db.query(TestModel).filter(TestModel.moduleId == m.id).all()
-        if not tests:
-            # No tests in module -> treat as 0
-            per_module_values.append(0.0)
-            continue
-        test_ids = [t.id for t in tests]
+    per_module_values: list[float] = []
 
-        # find latest test result among tests of this module for the user
-        tr = (
-            db.query(TestResultModel)
-            .filter(TestResultModel.testId.in_(test_ids), TestResultModel.userId == user_id)
-            .order_by(TestResultModel.created_at.desc())
+    for m in modules:
+        # Пытаемся взять уже сохранённое значение знаний по модулю
+        umk = (
+            db.query(UserModuleKnowledgeModel)
+            .filter(
+                UserModuleKnowledgeModel.userId == user_id,
+                UserModuleKnowledgeModel.moduleId == m.id,
+            )
             .first()
         )
-        if tr:
-            per_module_values.append(float(getattr(tr, 'result', 0) or 0))
+        if umk is not None:
+            per_module_values.append(float(getattr(umk, "knowledge", 0.0) or 0.0))
         else:
-            per_module_values.append(0.0)
+            # Если записи нет, пересчитываем знания по модулю (даст 0.0, если нет попыток)
+            value = compute_module_knowledge(db, user_id, m.id)
+            per_module_values.append(float(value or 0.0))
 
-    if not per_module_values:
-        knowledge = 0.0
-    else:
-        knowledge = float(sum(per_module_values)) / float(len(per_module_values))
+    knowledge = float(sum(per_module_values)) / float(len(per_module_values))
 
     existing_course = (
         db.query(UserCourseKnowledgeModel)

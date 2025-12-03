@@ -824,25 +824,17 @@ def submit_test(
                 db.commit()
                 db.refresh(module_passed)
             except IntegrityError as ie:
-                # Handle possible schema-level unique constraint issues (existing DB may
-                # have an unexpected unique index on userId). In that case, try to find
-                # the conflicting record by userId and update it instead of inserting.
+                # В случае проблем с уникальными ограничениями не трогаем уже существующие записи
+                # для других модулей и не "переносим" ModulePassed между модулями.
+                # Просто логируем ошибку и откатываем транзакцию.
+                import logging
+                logging.getLogger(__name__).error(
+                    "IntegrityError inserting ModulePassed for user=%s, module=%s: %s",
+                    uid,
+                    test.moduleId,
+                    ie,
+                )
                 db.rollback()
-                existing_conflict = db.query(ModulePassedModel).filter(ModulePassedModel.userId == uid).first()
-                if existing_conflict:
-                    existing_conflict.moduleId = test.moduleId
-                    existing_conflict.isPassed = bool(result.isPassed)
-                    db.add(existing_conflict)
-                    db.commit()
-                    db.refresh(existing_conflict)
-                    module_passed = existing_conflict
-                    # Log the recovery action
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "IntegrityError inserting ModulePassed; updated existing record for user=%s", uid)
-                else:
-                    # Re-raise if we cannot resolve the conflict
-                    raise
 
     # Trigger recompute of aggregated module/course knowledge for this user
     computed_knowledge = None

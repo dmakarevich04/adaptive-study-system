@@ -823,6 +823,9 @@ def download_topic_content(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     _ensure_module_access(db, course, module, int(current.id))
+    print(
+        f"Downloading topic content {topic_content.id}, file path: {topic_content.file}"
+    )
     if not topic_content.file or not os.path.exists(topic_content.file):
         raise HTTPException(status_code=404, detail="File not found")
     filename = os.path.basename(topic_content.file)

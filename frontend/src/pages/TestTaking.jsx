@@ -15,6 +15,7 @@ export default function TestTaking() {
   const [testStarted, setTestStarted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [alreadyPassed100, setAlreadyPassed100] = useState(false); // Тест уже пройден на 100%
   
   // Таймер
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -41,6 +42,24 @@ export default function TestTaking() {
         // Загружаем информацию о тесте
         const testData = await teachingApi.getTestFullTestsTestIdGet(id);
         setTest(testData);
+
+        // Проверяем, есть ли уже результат на 100%
+        try {
+          const fullApi = new FullApi();
+          if (token) {
+            fullApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
+          }
+          const myResults = await fullApi.myResultsFullResultsGet();
+          const testResults = (myResults || []).filter(r => r.testId === id);
+          const hasPerfectResult = testResults.some(r => {
+            const percent = r.result ?? r.percent ?? 0;
+            const isPassed = r.isPassed ?? r.passed ?? false;
+            return percent === 100 && isPassed;
+          });
+          setAlreadyPassed100(hasPerfectResult);
+        } catch (err) {
+          console.debug("Не удалось загрузить результаты:", err?.message || err);
+        }
 
         // Загружаем вопросы теста
         const questionsData = await teachingApi.listQuestionsFullTestsTestIdQuestionsGet(id);
@@ -317,6 +336,22 @@ export default function TestTaking() {
             </div>
           )}
         </div>
+      </div>
+    );
+  }
+
+  // Экран блокировки: тест уже пройден на 100%
+  if (alreadyPassed100) {
+    return (
+      <div className="card text-center">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-green-600">✓ Тест пройден на 100%</h1>
+          <p className="text-gray-600 mt-2">Вы уже успешно прошли этот тест с максимальным результатом.</p>
+          <p className="text-gray-500 mt-1">Повторное прохождение не требуется.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+          Вернуться к курсу
+        </button>
       </div>
     );
   }

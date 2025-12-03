@@ -168,7 +168,7 @@ class TestResultRead(BaseModel):
     id: int
     scoreInPoints: int
     isPassed: bool
-    durationInMinutes: int
+    durationInMinutes: float
     result: int
     testId: int
     userId: int

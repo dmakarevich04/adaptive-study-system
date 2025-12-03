@@ -794,47 +794,9 @@ def submit_test(
         logger.info(
             f"Keeping original values: percent={percent}, isPassed={passed}, scoreInPoints={correct}")
 
-    # update ModulePassed using the (possibly recomputed) result
-    if test and test.moduleId:
-        module_passed = (
-            db.query(ModulePassedModel)
-            .filter(ModulePassedModel.moduleId == test.moduleId, ModulePassedModel.userId == uid)
-            .first()
-        )
-        if module_passed:
-            if result.isPassed and not module_passed.isPassed:
-                module_passed.isPassed = True
-                db.add(module_passed)
-                db.commit()
-                db.refresh(module_passed)
-            else:
-                # ensure flag reflects latest
-                module_passed.isPassed = bool(module_passed.isPassed)
-                db.add(module_passed)
-                db.commit()
-                db.refresh(module_passed)
-        else:
-            module_passed = ModulePassedModel()
-            module_passed.id = generate_unique_id(db, ModulePassedModel)
-            module_passed.moduleId = test.moduleId
-            module_passed.isPassed = bool(result.isPassed)
-            module_passed.userId = uid
-            db.add(module_passed)
-            try:
-                db.commit()
-                db.refresh(module_passed)
-            except IntegrityError as ie:
-                # В случае проблем с уникальными ограничениями не трогаем уже существующие записи
-                # для других модулей и не "переносим" ModulePassed между модулями.
-                # Просто логируем ошибку и откатываем транзакцию.
-                import logging
-                logging.getLogger(__name__).error(
-                    "IntegrityError inserting ModulePassed for user=%s, module=%s: %s",
-                    uid,
-                    test.moduleId,
-                    ie,
-                )
-                db.rollback()
+    # NOTE: ModulePassed теперь полностью управляется функцией compute_module_knowledge,
+    # которая вызывается ниже. Это обеспечивает корректное обновление статуса прохождения
+    # модуля на основе агрегированного знания (среднего по всем тестам модуля).
 
     # Trigger recompute of aggregated module/course knowledge for this user
     computed_knowledge = None

@@ -225,7 +225,14 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         db.add(umk)
         logger.info(f"Created new UserModuleKnowledge: {knowledge}%")
 
-    # update ModulePassed if there's an entry for this user/module
+    # Сначала коммитим UserModuleKnowledge
+    try:
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error committing UserModuleKnowledge: {e}")
+        db.rollback()
+
+    # update ModulePassed - create if not exists, update if knowledge >= 80%
     mp = (
         db.query(ModulePassedModel)
         .filter(ModulePassedModel.userId == user_id, ModulePassedModel.moduleId == module_id)
@@ -245,8 +252,30 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
                 f"Module {module_id} pass status unchanged (isPassed={mp.isPassed}, knowledge={knowledge}%)"
             )
         db.add(mp)
+        try:
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error updating ModulePassed: {e}")
+            db.rollback()
+    else:
+        # Создаём запись ModulePassed, если её ещё нет
+        mp = ModulePassedModel()
+        mp.id = generate_random_id()
+        mp.userId = user_id
+        mp.moduleId = module_id
+        mp.isPassed = knowledge >= 80.0
+        if mp.isPassed:
+            mp.datePassed = date.today()
+        db.add(mp)
+        logger.info(f"Created ModulePassed for module {module_id}: isPassed={mp.isPassed}, knowledge={knowledge}%")
+        try:
+            db.commit()
+        except Exception as e:
+            # Ошибка может возникнуть из-за неправильного уникального ограничения в БД
+            # (userId вместо userId+moduleId). Откатываем и продолжаем.
+            logger.error(f"Error creating ModulePassed (constraint issue?): {e}")
+            db.rollback()
 
-    db.commit()
     logger.info(f"Module knowledge computation completed: {knowledge}%")
     return knowledge
 

@@ -8,6 +8,7 @@ export default function TopicStudying() {
 
   const [topic, setTopic] = useState(null);
   const [contents, setContents] = useState([]);
+  const [contentUrls, setContentUrls] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,7 +18,7 @@ export default function TopicStudying() {
     const fetchData = async () => {
       const id = Number(topicId);
       const cId = Number(courseId);
-      
+
       if (isNaN(id) || isNaN(cId)) {
         setError("Некорректный ID темы или курса");
         setLoading(false);
@@ -31,49 +32,22 @@ export default function TopicStudying() {
       }
 
       try {
-        // Загружаем темы модуля, чтобы найти нужную тему
-        // Сначала нужно получить модуль, но проще загрузить все темы всех модулей курса
-        // Или найти нужную тему по ID - но для этого нужен эндпоинт getTopic
-        // Пока будем загружать содержимое и использовать информацию из него
+        // 1) Сама тема (с проверкой доступа)
+        const topicData = await teachingApi.getTopicFullTopicsTopicIdGet(id);
+        setTopic(topicData);
 
-        // Загружаем материалы темы
+        // 2) Материалы темы
         const contentsData = await teachingApi.getTopicContentsFullTopicsTopicIdContentsGet(
           id,
           { courseId: cId }
         );
         setContents(contentsData || []);
-
-        // Для получения информации о теме нужно будет загрузить все модули и их темы
-        // Но это может быть неэффективно. Попробуем другой подход.
-        // Попробуем загрузить модули курса и найти тему среди них
-        const modules = await teachingApi.listModulesForCourseFullCoursesCourseIdModulesGet(cId);
-        
-        let foundTopic = null;
-        for (const module of modules) {
-          try {
-            const topics = await teachingApi.listTopicsFullCoursesCourseIdModulesModuleIdTopicsGet(
-              cId,
-              module.id
-            );
-            const topicData = topics.find(t => t.id === id);
-            if (topicData) {
-              foundTopic = topicData;
-              break;
-            }
-          } catch (err) {
-            console.error("Ошибка загрузки тем модуля:", err);
-          }
-        }
-
-        if (foundTopic) {
-          setTopic(foundTopic);
-        }
       } catch (err) {
-        console.error("Ошибка при загрузке темы:", err);
+        console.error("Ошибка при загрузке темы или материалов:", err);
         if (err.status === 401 || err.status === 403) {
           setError("У вас нет доступа к этой теме");
         } else {
-          setError("Не удалось загрузить тему");
+          setError("Не удалось загрузить тему или материалы");
         }
       } finally {
         setLoading(false);
@@ -83,52 +57,111 @@ export default function TopicStudying() {
     fetchData();
   }, [courseId, topicId, token]);
 
-  // Функция для определения типа файла по расширению
+  // Определение типа файла по расширению
   const getFileType = (filePath) => {
     if (!filePath) return "unknown";
-    const extension = filePath.split('.').pop().toLowerCase();
-    
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
-    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'wmv', 'flv'];
-    const audioExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'];
-    
-    if (imageExtensions.includes(extension)) return "image";
-    if (videoExtensions.includes(extension)) return "video";
-    if (audioExtensions.includes(extension)) return "audio";
+    const ext = filePath.split(".").pop().toLowerCase();
+
+    const image = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
+    const video = ["mp4", "webm", "ogg", "mov", "avi", "wmv", "flv"];
+    const audio = ["mp3", "wav", "ogg", "m4a", "aac", "flac"];
+
+    if (image.includes(ext)) return "image";
+    if (video.includes(ext)) return "video";
+    if (audio.includes(ext)) return "audio";
     return "file";
   };
 
-  // Функция для получения URL файла
-  const getFileUrl = (contentId) => {
-    return `/full/topic-contents/${contentId}/download`;
+  // Красивое имя файла из пути
+  const getPrettyFilename = (filePath) => {
+    if (!filePath) return "файл";
+    const parts = filePath.split(/[\\/]/);
+    return parts[parts.length - 1];
   };
 
-  // Функция для скачивания файла
+  // Загружаем blob-URL для превью изображений/видео/аудио (с авторизацией)
+  useEffect(() => {
+    const loadPreviews = async () => {
+      if (!contents || contents.length === 0) {
+        setContentUrls({});
+        return;
+      }
+
+      const previews = {};
+
+      await Promise.all(
+        contents.map(async (c) => {
+          if (!c.file) return;
+          const type = getFileType(c.file);
+          // Для документов blob-URL не нужен, только для медиа
+          if (type === "file" || type === "unknown") return;
+
+          try {
+            const teachingApi = new TeachingApi();
+            const baseUrl = teachingApi.apiClient.basePath || "";
+            const downloadUrl = `${baseUrl}/full/topic-contents/${c.id}/download`;
+            const resp = await fetch(downloadUrl, {
+              headers: token
+                ? { Authorization: `Bearer ${token}` }
+                : {},
+            });
+            if (!resp.ok) {
+              console.error("Не удалось загрузить превью материала темы", c.id, resp.status);
+              return;
+            }
+            const blob = await resp.blob();
+
+            const objectUrl = window.URL.createObjectURL(blob);
+            previews[c.id] = objectUrl;
+          } catch (e) {
+            console.error(
+              "Не удалось загрузить превью материала темы",
+              c.id,
+              e
+            );
+          }
+        })
+      );
+
+      setContentUrls(previews);
+    };
+
+    loadPreviews();
+  }, [contents, token]);
+
+  // Скачивание файла через API (нужно для корректного имени и типа)
   const handleDownload = async (contentId, filename) => {
     try {
       const teachingApi = new TeachingApi();
-      if (token) {
-        teachingApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
+      const baseUrl = teachingApi.apiClient.basePath || "";
+      const downloadUrl = `${baseUrl}/full/topic-contents/${contentId}/download`;
+      const resp = await fetch(downloadUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!resp.ok) {
+        alert("Не удалось скачать файл");
+        return;
       }
-      
-      const response = await teachingApi.downloadTopicContentFullTopicContentsContentIdDownloadGetWithHttpInfo(contentId);
-      
-      const blob = response.body instanceof Blob 
-        ? response.body 
-        : new Blob([response.body], { type: response.headers['content-type'] || 'application/octet-stream' });
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
-      const contentDisposition = response.headers['content-disposition'] || '';
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      const finalFilename = filenameMatch ? filenameMatch[1].replace(/['"]/g, '') : (filename || 'file');
-      
+
+      const blob = await resp.blob();
+
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+
+      const contentDisposition = resp.headers.get("content-disposition") || "";
+      const filenameMatch = contentDisposition.match(
+        /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+      );
+      const finalFilename = filenameMatch
+        ? filenameMatch[1].replace(/['"]/g, "")
+        : filename || "file";
+
       a.download = finalFilename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(objectUrl);
       document.body.removeChild(a);
     } catch (err) {
       console.error("Ошибка скачивания файла:", err);
@@ -153,78 +186,93 @@ export default function TopicStudying() {
 
   return (
     <div className="topic-studying-page">
-      <div className="topic-header">
-        <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
+      <div className="topic-header flex items-center justify-between mb-4">
+        <button
+          className="btn btn-secondary"
+          onClick={() => navigate(`/courses/${courseId}/studying`)}
+        >
           ← Назад к курсу
         </button>
         {topic && (
-          <div className="topic-info">
-            <h1>{topic.name}</h1>
-            <p className="topic-description">{topic.description}</p>
+          <div className="topic-info ml-4">
+            <h1 className="text-2xl font-bold mb-2">{topic.name}</h1>
+            {topic.description && (
+              <p className="topic-description text-gray-700">{topic.description}</p>
+            )}
           </div>
         )}
       </div>
 
       <div className="topic-contents">
-        <h2>Материалы темы</h2>
+        <h2 className="text-xl font-semibold mb-3">Материалы темы</h2>
         {contents.length === 0 ? (
-          <p>Нет материалов</p>
+          <p className="text-gray-600">Нет материалов</p>
         ) : (
-          <div className="contents-list">
+          <div className="contents-list space-y-4">
             {contents.map((content) => {
               const fileType = getFileType(content.file);
-              const fileUrl = getFileUrl(content.id);
+              const previewUrl = contentUrls[content.id];
+              const prettyName = getPrettyFilename(content.file);
 
               return (
-                <div key={content.id} className="content-item">
-                  <div className="content-description">
-                    {content.description && <p>{content.description}</p>}
-                  </div>
-
-                  <div className="content-media">
-                    {fileType === "image" && (
-                      <div className="image-container">
-                        <img 
-                          src={fileUrl}
-                          alt={content.description || "Изображение"}
-                          onError={(e) => {
-                            console.error("Ошибка загрузки изображения");
-                            e.target.style.display = "none";
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {fileType === "video" && (
-                      <div className="video-container">
-                        <video controls>
-                          <source src={fileUrl} type="video/mp4" />
-                          <source src={fileUrl} type="video/webm" />
-                          <source src={fileUrl} type="video/ogg" />
-                          Ваш браузер не поддерживает видео.
-                        </video>
-                      </div>
-                    )}
-
-                    {fileType === "audio" && (
-                      <div className="audio-container">
-                        <audio controls>
-                          <source src={fileUrl} type="audio/mpeg" />
-                          <source src={fileUrl} type="audio/wav" />
-                          <source src={fileUrl} type="audio/ogg" />
-                          Ваш браузер не поддерживает аудио.
-                        </audio>
-                      </div>
-                    )}
-
-                    {fileType === "file" && (
-                      <div className="file-container">
-                        <button onClick={() => handleDownload(content.id, content.file)}>
-                          Скачать файл
-                        </button>
-                      </div>
+                <div key={content.id} className="content-item card p-4">
+                  <div className="content-description mb-2">
+                    {content.description && (
+                      <p className="text-sm text-gray-800">{content.description}</p>
                     )}
                   </div>
+
+                  {content.file ? (
+                    <div className="content-media">
+                      {fileType === "image" && (
+                        <div className="image-container">
+                          <img
+                            src={previewUrl}
+                            alt={content.description || "Изображение"}
+                            className="max-w-full h-auto rounded"
+                            onError={(e) => {
+                              console.error("Ошибка загрузки изображения");
+                              e.target.style.display = "none";
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {fileType === "video" && (
+                        <div className="video-container">
+                          <video controls className="w-full max-w-2xl rounded">
+                            {previewUrl && <source src={previewUrl} />}
+                            Ваш браузер не поддерживает видео.
+                          </video>
+                        </div>
+                      )}
+
+                      {fileType === "audio" && (
+                        <div className="audio-container">
+                          <audio controls className="w-full">
+                            {previewUrl && <source src={previewUrl} />}
+                            Ваш браузер не поддерживает аудио.
+                          </audio>
+                        </div>
+                      )}
+
+                      {fileType === "file" && (
+                        <div className="file-container flex items-center justify-between">
+                          <span className="text-sm text-gray-700 mr-3">
+                            {prettyName}
+                          </span>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleDownload(content.id, prettyName)}
+                          >
+                            Скачать
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">Файл не прикреплён.</div>
+                  )}
                 </div>
               );
             })}

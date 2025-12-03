@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TeachingApi, FullApi } from "../api/index.js";
+import { TeachingApi, FullApi, UsersApi } from "../api/index.js";
 
 function CoursesList() {
   const [courses, setCourses] = useState([]);
@@ -13,16 +13,29 @@ function CoursesList() {
     // Создаём экземпляры API внутри эффекта
     const teachingApi = new TeachingApi();
     const fullApi = new FullApi();
+    const usersApi = new UsersApi();
 
     if (token) {
       teachingApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
       fullApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
+      usersApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
     }
 
     const fetchCourses = async () => {
       try {
-        // Загружаем опубликованные курсы
-        const coursesData = await teachingApi.listCoursesFullCoursesGet({ published: true });
+        // Загружаем опубликованные курсы и курсы, на которые пользователь уже записан
+        const [coursesData, enrolledCourses] = await Promise.all([
+          teachingApi.listCoursesFullCoursesGet({ published: true }),
+          usersApi.myEnrolledCoursesUsersMeCoursesEnrolledGet().catch((err) => {
+            console.error("Ошибка при получении курсов, на которые записан пользователь:", err);
+            // Если не авторизован — отправляем на логин
+            if (err && (err.status === 401 || err.status === 403)) {
+              localStorage.removeItem("jwtToken");
+              navigate("/login");
+            }
+            return [];
+          }),
+        ]);
 
         if (!coursesData || coursesData.length === 0) {
           setCourses([]);
@@ -30,9 +43,20 @@ function CoursesList() {
           return;
         }
 
+        // Оставляем только те курсы, на которые пользователь еще не записан
+        const enrolledIds = new Set((enrolledCourses || []).map((c) => c.id));
+        const notEnrolledCourses =
+          coursesData.filter((course) => !enrolledIds.has(course.id));
+
+        if (!notEnrolledCourses || notEnrolledCourses.length === 0) {
+          setCourses([]);
+          setLoading(false);
+          return;
+        }
+
         // Загружаем категории для каждого курса
         const coursesWithCategories = await Promise.all(
-          coursesData.map(async (course) => {
+          notEnrolledCourses.map(async (course) => {
             if (!course.categoryId) {
               return { ...course, category: { name: "Без категории" } };
             }

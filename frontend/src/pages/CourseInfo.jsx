@@ -76,7 +76,26 @@ export default function CourseInfo() {
 
         // Загрузка модулей
         const modulesData = await teachingApi.listModulesForCourseFullCoursesCourseIdModulesGet(id);
-        setModules(modulesData);
+
+        // Для краткого содержания курса подгружаем темы для каждого модуля
+        const modulesWithTopics = await Promise.all(
+          (modulesData || []).map(async (module) => {
+            try {
+              const topics = await teachingApi.listTopicsFullCoursesCourseIdModulesModuleIdTopicsGet(
+                id,
+                module.id
+              );
+              return { ...module, topics: topics || [] };
+            } catch (err) {
+              console.error(
+                `Ошибка загрузки тем модуля ${module.id} для CourseInfo:`,
+                err?.response || err?.message || err
+              );
+              return { ...module, topics: [] };
+            }
+          })
+        );
+        setModules(modulesWithTopics);
 
         // Загружаем уровень знаний по модулям (мои)
         try {
@@ -188,10 +207,21 @@ export default function CourseInfo() {
                   {enrolling ? "Записываем..." : "Записаться"}
                 </button>
               )}
+              {enrollError && (
+                <div className="mt-2 text-xs text-red-600 text-right">
+                  {enrollError}
+                </div>
+              )}
             </div>
           </div>
 
             <p className="mt-4 text-gray-600" style={{ lineHeight: 1.6 }}>{course.description}</p>
+
+            {enrolled && (
+              <p className="mt-3 text-sm text-green-700">
+                Курс добавлен в раздел «Моё обучение». Перейдите туда, чтобы начать изучение.
+              </p>
+            )}
 
             {enrolled && (
               <div className="mt-4">
@@ -205,43 +235,30 @@ export default function CourseInfo() {
       </div>
 
       <div className="mt-6">
-        <h2 className="mb-4">Программа курса</h2>
+        <h2 className="mb-2">Содержание курса</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Ниже приведён список модулей и тем. Подробное изучение доступно после записи на курс в разделе «Моё обучение».
+        </p>
         {modules.length === 0 ? (
           <p className="text-gray-600">Нет модулей</p>
         ) : (
-          <div className="grid">
+          <ul className="space-y-3">
             {modules.map((module) => (
-              <div key={module.id} className="card flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold">{module.name}</h3>
-                  <p className="text-sm text-gray-600">{module.description || "Описание отсутствует"}</p>
-
-                  {enrolled && (
-                    <div className="mt-2" style={{ maxWidth: 420 }}>
-                      <div className="text-sm text-gray-600">Прогресс: {moduleKnowledgeMap[module.id] ?? 0}%</div>
-                      <div className="progress-track mt-1">
-                        <div className="progress-fill" style={{ width: `${moduleKnowledgeMap[module.id] ?? 0}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  {enrolled ? (
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => navigate(`/courses/${courseId}/modules/${module.id}/topics`)}
-                    >
-                      Начать модуль
-                    </button>
-                  ) : (
-                    <button className="btn btn-secondary" disabled>
-                      Доступ с записью
-                    </button>
-                  )}
-                </div>
-              </div>
+              <li key={module.id} className="card p-4">
+                <h3 className="font-bold">{module.name}</h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {module.description || "Описание отсутствует"}
+                </p>
+                {Array.isArray(module.topics) && module.topics.length > 0 && (
+                  <ul className="list-disc list-inside text-sm text-gray-700">
+                    {module.topics.map((topic) => (
+                      <li key={topic.id}>{topic.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>

@@ -152,61 +152,59 @@ def compute_test_score(db, test_id: int, test_result_id: int) -> TestScoreBreakd
 def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
     """Aggregate the learner's mastery level for a module.
 
-        Формула:
-        - Для каждого теста модуля берём все попытки пользователя и вычисляем средний
-            процент (average of all attempts for that test). Таким образом каждое
-            прохождение влияет на средний по тесту — и более плохие попытки могут
-            снизить среднее.
-        - Уровень знаний модуля = среднее арифметическое средних процентов по всем
-            тестам модуля. Тесты без попыток игнорируются.
-        Полученное значение записывается в `UserModuleKnowledge` и переписывает
-        предыдущие данные.
+    New formula (latest-per-test):
+    - Для каждого теста модуля берём последнюю попытку пользователя (по
+      полю `created_at`) для данного теста.
+    - Если у теста нет попыток — он пропускается при усреднении.
+    - Уровень знаний модуля = среднее арифметическое процентов последних
+      попыток по всем тестам модуля (только тесты с попытками).
+    Результат сохраняется в `UserModuleKnowledge` и при необходимости обновляет
+    запись в `ModulePassed` (порог 80%).
     """
 
     import logging
+    from datetime import date
+    from sqlalchemy import desc
 
     logger = logging.getLogger(__name__)
 
-    # collect tests in module
     tests = db.query(TestModel).filter(TestModel.moduleId == module_id).all()
     if not tests:
         logger.info(f"No tests found for module {module_id}")
         return 0.0
 
     logger.info(
-        f"Computing knowledge for user {user_id}, module {module_id}, found {len(tests)} tests")
+        f"Computing knowledge (latest-per-test) for user {user_id}, module {module_id}, found {len(tests)} tests")
 
     scores = []
     for t in tests:
-        # collect all attempts for this user+test and use the best (maximum) percent
-        trs = (
+        tr = (
             db.query(TestResultModel)
             .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
             .order_by(TestResultModel.created_at.desc())
-            .all()
+            .first()
         )
-        if not trs:
-            logger.info(
-                f"No test result found for test {t.id} (test name: {getattr(t, 'name', 'N/A')})")
+        if not tr:
+            # No attempts for this test: treat as 0.0 (user hasn't started)
+            logger.debug(
+                f"No test result for test {t.id} (name: {getattr(t, 'name', 'N/A')}); counting as 0.0")
+            scores.append(0.0)
             continue
 
-        attempt_percents = [float(getattr(r, 'result', 0) or 0) for r in trs]
-        best_percent = max(attempt_percents)
+        percent = float(getattr(tr, 'result', 0) or 0)
         logger.info(
-            f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): attempts={len(trs)}, best={best_percent}%, attempts_summary={[{'id': r.id, 'result': getattr(r, 'result', None)} for r in trs]}")
-        scores.append(best_percent)
+            f"Test {t.id} (name: {getattr(t, 'name', 'N/A')}): latest_result_id={getattr(tr, 'id', None)}, percent={percent}%")
+        scores.append(percent)
 
     if not scores:
         knowledge = 0.0
-        logger.info(f"No scores found, knowledge = 0.0")
+        logger.info(f"No recent test attempts found for module {module_id}; knowledge = 0.0")
     else:
         knowledge = float(sum(scores)) / float(len(scores))
         logger.info(
-            f"Computed knowledge: {knowledge}% (from {len(scores)} test(s), scores: {scores})")
+            f"Computed module knowledge: {knowledge}% (from {len(scores)} test(s), latest scores: {scores})")
 
-    # persist
-    from datetime import date
-
+    # persist UserModuleKnowledge
     existing = (
         db.query(UserModuleKnowledgeModel)
         .filter(UserModuleKnowledgeModel.userId == user_id, UserModuleKnowledgeModel.moduleId == module_id)
@@ -237,8 +235,7 @@ def compute_module_knowledge(db, user_id: int, module_id: int) -> float:
         if knowledge >= 80.0:
             mp.isPassed = True
             mp.datePassed = date.today()
-            logger.info(
-                f"Module {module_id} marked as passed (knowledge >= 80%)")
+            logger.info(f"Module {module_id} marked as passed (knowledge >= 80%)")
         else:
             mp.isPassed = False
             logger.info(f"Module {module_id} not passed (knowledge < 80%)")
@@ -260,58 +257,40 @@ def compute_course_knowledge(db, user_id: int, course_id: int) -> float:
     Полученный процент сохраняется в `UserCourseKnowledge`.
     """
 
-    # Course-level knowledge should account for all attempts across tests
-    # Gather all tests that belong to this course (directly) or to its modules
+    # Course-level knowledge: for each module take the latest TestResult across
+    # all tests in that module (by created_at). If none exists for a module -> 0.
+    # Then course knowledge = arithmetic mean of these per-module values.
     modules = db.query(ModuleModel).filter(ModuleModel.courseId == course_id).all()
-    module_ids = [m.id for m in modules] if modules else []
-
-    from sqlalchemy import or_, literal
-
-    if module_ids:
-        tests = db.query(TestModel).filter(
-            or_(TestModel.courseId == course_id, TestModel.moduleId.in_(module_ids))
-        ).all()
-    else:
-        tests = db.query(TestModel).filter(TestModel.courseId == course_id).all()
-
-    if not tests:
+    if not modules:
         return 0.0
 
-    # For each test compute average percent across all attempts by the user
-    import logging
-    logger = logging.getLogger(__name__)
+    per_module_values = []
+    from sqlalchemy import desc
+    for m in modules:
+        # gather test ids for this module
+        tests = db.query(TestModel).filter(TestModel.moduleId == m.id).all()
+        if not tests:
+            # No tests in module -> treat as 0
+            per_module_values.append(0.0)
+            continue
+        test_ids = [t.id for t in tests]
 
-    test_averages = []
-    perfect_found = False
-    for t in tests:
-        trs = (
+        # find latest test result among tests of this module for the user
+        tr = (
             db.query(TestResultModel)
-            .filter(TestResultModel.testId == t.id, TestResultModel.userId == user_id)
-            .all()
+            .filter(TestResultModel.testId.in_(test_ids), TestResultModel.userId == user_id)
+            .order_by(TestResultModel.created_at.desc())
+            .first()
         )
-        if not trs:
-            continue
-
-        # If any attempt is a perfect (100%) passed attempt, skip this test in course average
-        has_perfect = any((float(getattr(r, 'result', 0) or 0) >= 100.0) and getattr(r, 'isPassed', False) for r in trs)
-        if has_perfect:
-            perfect_found = True
-            logger.info(f"Skipping test {t.id} in course average because of perfect attempt(s)")
-            continue
-
-        attempt_percents = [float(getattr(r, 'result', 0) or 0) for r in trs]
-        test_avg = float(sum(attempt_percents)) / float(len(attempt_percents))
-        test_averages.append(test_avg)
-
-    if not test_averages:
-        # If there were no non-perfect tests but at least one perfect test exists,
-        # treat course knowledge as 100% (everything checked out by perfect attempts).
-        if perfect_found:
-            knowledge = 100.0
+        if tr:
+            per_module_values.append(float(getattr(tr, 'result', 0) or 0))
         else:
-            knowledge = 0.0
+            per_module_values.append(0.0)
+
+    if not per_module_values:
+        knowledge = 0.0
     else:
-        knowledge = float(sum(test_averages)) / float(len(test_averages))
+        knowledge = float(sum(per_module_values)) / float(len(per_module_values))
 
     existing_course = (
         db.query(UserCourseKnowledgeModel)

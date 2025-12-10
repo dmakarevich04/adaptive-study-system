@@ -131,6 +131,11 @@ a:hover {
   font-size: 0.95rem;
 }
 
+.btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}
+
 .btn-primary {
   background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
   color: white;
@@ -391,6 +396,10 @@ h2 {
 
 .mb-6 {
   margin-bottom: 1.5rem;
+}
+
+.mr-2 {
+  margin-right: 0.5rem;
 }
 
 .mr-4 {

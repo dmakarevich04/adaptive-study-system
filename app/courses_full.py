@@ -59,9 +59,9 @@ router = APIRouter(prefix="/full", tags=["full"])
 @router.post(
     "/admin/categories",
     response_model=CourseCategoryRead,
-    dependencies=[Depends(require_role("teacher"))],
+    dependencies=[Depends(require_role("admin"))],
     summary="Создать категорию курса",
-    description="Добавляет новую категорию курсов. Требуются права преподавателя.",
+    description="Добавляет новую категорию курсов. Требуются права администратора.",
 )
 def create_category(payload: CourseCategoryCreate, db: Session = Depends(get_db)):
     category = CourseCategoryModel()
@@ -99,9 +99,9 @@ def get_category(cat_id: int, db: Session = Depends(get_db)):
 @router.put(
     "/admin/categories/{cat_id}",
     response_model=CourseCategoryRead,
-    dependencies=[Depends(require_role("teacher"))],
+    dependencies=[Depends(require_role("admin"))],
     summary="Обновить категорию курса",
-    description="Изменяет название существующей категории. Требуются права преподавателя.",
+    description="Изменяет название существующей категории. Требуются права администратора.",
 )
 def update_category(cat_id: int, payload: CourseCategoryCreate, db: Session = Depends(get_db)):
     category = db.get(CourseCategoryModel, cat_id)
@@ -116,9 +116,9 @@ def update_category(cat_id: int, payload: CourseCategoryCreate, db: Session = De
 
 @router.delete(
     "/admin/categories/{cat_id}",
-    dependencies=[Depends(require_role("teacher"))],
+    dependencies=[Depends(require_role("admin"))],
     summary="Удалить категорию курса",
-    description="Удаляет категорию курсов по идентификатору. Требуются права преподавателя.",
+    description="Удаляет категорию курсов по идентификатору. Требуются права администратора.",
 )
 def delete_category(cat_id: int, db: Session = Depends(get_db)):
     category = db.get(CourseCategoryModel, cat_id)

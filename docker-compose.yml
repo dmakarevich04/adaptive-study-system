@@ -33,6 +33,25 @@ services:
         condition: service_healthy
     restart: always
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lms_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - web
+    restart: always
+    stdin_open: true
+    tty: true
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin

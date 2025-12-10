@@ -81,6 +81,65 @@ export default function Studying() {
         }
 
         const modulesData = await teachingApi.listModulesForCourseFullCoursesCourseIdModulesGet(id);
+        
+        // Загружаем знания по модулям СРАЗУ для определения блокировки
+        let moduleKnowledgeData = [];
+        if (!authorCheck) {
+          try {
+            moduleKnowledgeData = await fullApi.myModuleKnowledgeFullMeModulesKnowledgeGet();
+          } catch (err) {
+            console.error("Ошибка загрузки знаний по модулям:", err);
+            moduleKnowledgeData = [];
+          }
+        }
+        
+        // Создаем карту знаний по модулям
+        const knowledgeMap = {};
+        (moduleKnowledgeData || []).forEach((m) => {
+          knowledgeMap[m.moduleId] = m.knowledge || 0;
+        });
+        
+        // Определяем блокировку модулей на основе знаний
+        // Модуль заблокирован, если предыдущий модуль не пройден (knowledge < 80%)
+        const locks = {};
+        if (!authorCheck && modulesData.length > 0) {
+          modulesData.forEach((module, i) => {
+            if (i === 0) {
+              // Первый модуль всегда доступен
+              locks[module.id] = { isLocked: false, message: "", isPassed: false };
+            } else {
+              // Проверяем, пройден ли предыдущий модуль
+              const prevModule = modulesData[i - 1];
+              const prevKnowledge = knowledgeMap[prevModule.id] || 0;
+              const isPrevModulePassed = prevKnowledge >= 80;
+              
+              locks[module.id] = { 
+                isLocked: !isPrevModulePassed, 
+                message: !isPrevModulePassed ? "Модуль заблокирован. Пройдите предыдущий модуль." : "", 
+                isPassed: false 
+              };
+            }
+          });
+          
+          // Проверяем, все ли модули пройдены для теста курса
+          const allModulesUnlocked = Object.values(locks).every(lock => !lock.isLocked);
+          const lastModule = modulesData[modulesData.length - 1];
+          const lastModuleKnowledge = knowledgeMap[lastModule.id] || 0;
+          const lastModulePassed = lastModuleKnowledge >= 80;
+          const allPassed = allModulesUnlocked && lastModulePassed;
+          setAllModulesPassed(allPassed);
+        } else if (authorCheck) {
+          // Автор курса имеет доступ ко всему
+          modulesData.forEach(module => {
+            locks[module.id] = { isLocked: false, message: "", isPassed: false };
+          });
+          setAllModulesPassed(true);
+        }
+        
+        // Устанавливаем состояние блокировки СРАЗУ
+        setModuleLocks(locks);
+        
+        // Теперь рендерим модули
         setModules(modulesData);
 
         // Загружаем тест курса
@@ -106,14 +165,16 @@ export default function Studying() {
         }
         setModuleTests(testsMap);
 
-        // Загружаем уровень знаний по модулям (мои) и мои результаты тестов
-        try {
-          const moduleKnowledge = await fullApi.myModuleKnowledgeFullMeModulesKnowledgeGet();
+        // Обновляем карту знаний по модулям (для прогресс-баров)
+        // Знания уже загружены выше для определения блокировки
           const map = {};
-          (moduleKnowledge || []).forEach((m) => {
-            map[m.moduleId] = Math.round(m.knowledge);
+        (moduleKnowledgeData || []).forEach((m) => {
+          map[m.moduleId] = Math.round(m.knowledge || 0);
           });
           setModuleKnowledgeMap(map);
+        
+        // Загружаем результаты тестов
+        try {
 
           // additionally fetch my test results to determine best result per test
           try {
@@ -137,80 +198,6 @@ export default function Studying() {
           setModuleKnowledgeMap({});
         }
 
-        // Проверяем доступность модулей и завершенность курса (только для студентов)
-        if (!authorCheck && modulesData.length > 0) {
-          const locks = {};
-          
-          // Проверяем ВСЕ модули, включая первый
-          for (let i = 0; i < modulesData.length; i++) {
-            const module = modulesData[i];
-            if (i === 0) {
-              // Первый модуль всегда доступен
-              locks[module.id] = { isLocked: false, message: "", isPassed: false };
-            } else {
-              // Для остальных модулей проверяем доступность через попытку загрузить темы
-              try {
-                await teachingApi.listTopicsFullCoursesCourseIdModulesModuleIdTopicsGet(
-                  Number(courseId),
-                  module.id
-                );
-                locks[module.id] = { isLocked: false, message: "", isPassed: false };
-              } catch (err) {
-                if (err.status === 403) {
-                  const errorDetail = err.response?.data?.detail || "";
-                  if (errorDetail.includes("Module locked") || errorDetail.includes("locked")) {
-                    locks[module.id] = { 
-                      isLocked: true, 
-                      message: "Модуль заблокирован. Пройдите предыдущий модуль.",
-                      isPassed: false
-                    };
-                  } else {
-                    locks[module.id] = { isLocked: false, message: "", isPassed: false };
-                  }
-                } else {
-                  locks[module.id] = { isLocked: false, message: "", isPassed: false };
-                }
-              }
-            }
-          }
-
-          // Проверяем, что ВСЕ модули не заблокированы (т.е. предыдущие пройдены)
-          // И проверяем доступность последнего модуля - если он доступен, значит предыдущие пройдены
-          let allModulesUnlocked = true;
-          let lastModuleAccessible = false;
-
-          if (modulesData.length > 0) {
-            allModulesUnlocked = Object.values(locks).every(lock => !lock.isLocked);
-            
-            // Дополнительная проверка: пытаемся получить доступ к последнему модулю
-            const lastModule = modulesData[modulesData.length - 1];
-            if (allModulesUnlocked && !locks[lastModule.id]?.isLocked) {
-              try {
-                // Попытка получить темы последнего модуля - если доступно, значит все предыдущие пройдены
-                await teachingApi.listTopicsFullCoursesCourseIdModulesModuleIdTopicsGet(
-                  Number(courseId),
-                  lastModule.id
-                );
-                lastModuleAccessible = true;
-              } catch (err) {
-                lastModuleAccessible = false;
-              }
-            }
-          }
-
-          // Тест курса доступен только если все модули разблокированы И последний модуль доступен
-          const allPassed = allModulesUnlocked && lastModuleAccessible;
-          setAllModulesPassed(allPassed);
-          setModuleLocks(locks);
-        } else if (authorCheck) {
-          // Автор курса имеет доступ ко всему
-          const locks = {};
-          modulesData.forEach(module => {
-            locks[module.id] = { isLocked: false, message: "", isPassed: false };
-          });
-          setModuleLocks(locks);
-          setAllModulesPassed(true);
-        }
       } catch (err) {
         console.error("Ошибка при загрузке курса:", err);
         if (err.status === 401 || err.status === 403) {
@@ -271,7 +258,7 @@ export default function Studying() {
   };
 
   const handleTopicClick = (topicId) => {
-    navigate(`/courses/${courseId}/topics/${topicId}/studying`);
+    navigate(`/course-studying/${courseId}/topics/${topicId}/studying`);
   };
 
   // Обновляем handleTestClick, чтобы проверять доступность перед переходом
@@ -293,7 +280,7 @@ export default function Studying() {
       }
     }
 
-    navigate(`/courses/${courseId}/tests/${testId}/take`);
+    navigate(`/course-studying/${courseId}/tests/${testId}/take`);
   };
 
   if (loading) {
@@ -332,7 +319,7 @@ export default function Studying() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-bold">{course.name}</h1>
-                <div className="mt-1 text-sm text-gray-600">Категория: <span className="font-medium text-blue-800">{category?.name || "Без категории"}</span></div>
+                <div className="mt-1 text-sm text-gray-600">Категория: <span className="font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{category?.name || "Без категории"}</span></div>
               </div>
 
               <div className="text-right">
@@ -391,11 +378,11 @@ export default function Studying() {
       )}
 
       <div>
-        <h2 className="text-xl font-bold mb-4">Модули курса</h2>
+        <h2 className="text-2xl font-bold mb-4">Модули курса</h2>
         {modules.length === 0 ? (
           <p className="text-gray-600">Нет модулей</p>
         ) : (
-          <div className="grid">
+          <div className="flex flex-col gap-4">
             {modules.map((module) => {
               const isExpanded = expandedModules.has(module.id);
               const topics = moduleTopics[module.id] || [];
@@ -404,30 +391,43 @@ export default function Studying() {
               const isLocked = lock?.isLocked || false;
 
               return (
-                <div key={module.id} className={`card mb-4 ${isLocked ? 'opacity-60' : ''}`}>
+                <div 
+                  key={module.id} 
+                  className={`card mb-4 ${isLocked ? 'bg-gray-100 border-gray-300' : ''}`}
+                  style={isLocked ? { pointerEvents: 'none', opacity: 0.7 } : {}}
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-start gap-4">
+                        {isLocked && (
+                          <img 
+                            src="/lock.png" 
+                            alt="Заблокировано" 
+                            style={{ width: '24px', height: '24px', flexShrink: 0, marginTop: '2px' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <h3 className="font-bold">{module.name} {isLocked && <span className="text-sm text-red-600">🔒</span>}</h3>
-                          <p className="text-sm text-gray-600">{module.description}</p>
+                          <h3 className={`font-bold text-lg ${isLocked ? 'text-gray-500' : ''}`}>
+                            {module.name}
+                          </h3>
+                          <p className={`text-sm ${isLocked ? 'text-gray-400' : 'text-gray-600'}`}>{module.description}</p>
 
                           <div className="mt-2" style={{ maxWidth: 420 }}>
-                            <div className="text-sm text-gray-600">Прогресс: {moduleKnowledgeMap[module.id] ?? 0}%</div>
+                            <div className={`text-sm ${isLocked ? 'text-gray-400' : 'text-gray-600'}`}>Прогресс: {moduleKnowledgeMap[module.id] ?? 0}%</div>
                             <div className="progress-track mt-1">
                               <div className="progress-fill" style={{ width: `${moduleKnowledgeMap[module.id] ?? 0}%` }} />
                             </div>
                           </div>
                         </div>
                       </div>
-
-                      {isLocked && lock?.message && <div className="text-sm text-yellow-700 mt-1">{lock.message}</div>}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         className={`btn btn-secondary`}
                         onClick={() => handleModuleToggle(module.id)}
                         disabled={isLocked}
+                        style={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                       >
                         {isExpanded ? 'Свернуть' : 'Открыть'}
                       </button>
@@ -441,9 +441,9 @@ export default function Studying() {
                         {topics.length === 0 ? (
                           <p className="text-gray-600">Нет тем</p>
                         ) : (
-                          <div className="space-y-2 mt-2">
+                          <div className="flex flex-col gap-2 mt-2">
                             {topics.map((topic) => (
-                              <div key={topic.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                              <div key={topic.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200">
                                 <div>
                                   <div className="font-medium">{topic.name}</div>
                                   <div className="text-sm text-gray-600">{topic.description}</div>
@@ -456,11 +456,11 @@ export default function Studying() {
                       </div>
 
                       {tests.length > 0 && (
-                        <div>
+                        <div className="mt-4">
                           <h4 className="font-medium">Тесты модуля</h4>
-                          <div className="space-y-2 mt-2">
+                          <div className="flex flex-col gap-2 mt-2">
                             {tests.map((t) => (
-                              <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                              <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200">
                                 <div>
                                   <div className="font-medium">{t.name}</div>
                                   <div className="text-sm text-gray-600">{t.description}</div>

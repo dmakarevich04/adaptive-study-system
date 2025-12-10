@@ -151,6 +151,8 @@ export default function CourseInfo() {
     try {
       await fullApi.enrollCourseFullCoursesCourseIdEnrollPost(Number(courseId));
       setEnrolled(true);
+      // Перенаправляем на страницу "Мое обучение"
+      navigate("/my-learning");
     } catch (err) {
       console.error(err);
       if (err.status === 401) {
@@ -188,8 +190,8 @@ export default function CourseInfo() {
             <div>
               <h1 className="text-2xl font-bold">{course.name}</h1>
               <div className="mt-2">
-                <span className="text-sm text-gray-600">Категория: </span>
-                <span className="text-sm font-medium text-blue-800">{category?.name || "Загрузка..."}</span>
+                <span className="text-base text-gray-600">Категория: </span>
+                <span className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{category?.name || "Загрузка..."}</span>
               </div>
             </div>
             <div className="text-right">
@@ -242,23 +244,28 @@ export default function CourseInfo() {
         {modules.length === 0 ? (
           <p className="text-gray-600">Нет модулей</p>
         ) : (
-          <ul className="space-y-3">
+          <div className="space-y-3">
             {modules.map((module) => (
-              <li key={module.id} className="card p-4">
-                <h3 className="font-bold">{module.name}</h3>
+              <div key={module.id} className="card p-3">
+                <h3 className="font-bold text-lg">{module.name}</h3>
                 <p className="text-sm text-gray-600 mb-2">
                   {module.description || "Описание отсутствует"}
                 </p>
                 {Array.isArray(module.topics) && module.topics.length > 0 && (
-                  <ul className="list-disc list-inside text-sm text-gray-700">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {module.topics.map((topic) => (
-                      <li key={topic.id}>{topic.name}</li>
+                      <div
+                        key={topic.id}
+                        className="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-md px-3 py-2"
+                      >
+                        {topic.name}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

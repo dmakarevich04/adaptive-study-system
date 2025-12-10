@@ -30,6 +30,7 @@ export default function CourseEdit() {
   // Состояние для загрузки файлов материалов темы
   const [newContentFiles, setNewContentFiles] = useState({}); // { topicId: { file: File, description: "" } }
   const [showAddContentForm, setShowAddContentForm] = useState({}); // { topicId: boolean }
+  const iconStyle = { width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "contain" };
 
   useEffect(() => {
     const id = Number(courseIdFromParams);
@@ -732,21 +733,8 @@ export default function CourseEdit() {
             />
           </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <input
-              type="checkbox"
-              id="isPublished"
-              checked={course.isPublished || false}
-              onChange={(e) =>
-                handleCourseChange("isPublished", e.target.checked)
-              }
-              className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
-            />
-            <label htmlFor="isPublished" className="cursor-pointer select-none">Опубликован</label>
-          </div>
-          
           <button className="btn btn-primary w-full" onClick={handleSave}>
-            💾 Сохранить изменения
+            Сохранить изменения
           </button>
         </div>
       </aside>
@@ -815,11 +803,11 @@ export default function CourseEdit() {
                 </div>
                 <button
                   type="button"
-                  className="btn btn-danger"
+                  style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                   onClick={() => handleDeleteModule(module.id)}
                   title="Удалить модуль"
                 >
-                  🗑️
+                  <img src="/delete.png" alt="Удалить" style={iconStyle} />
                 </button>
               </div>
 
@@ -911,11 +899,11 @@ export default function CourseEdit() {
                       </div>
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm"
+                        style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                         onClick={() => handleDeleteTopic(module.id, t.id)}
                         title="Удалить тему"
                       >
-                        🗑️
+                        <img src="/delete.png" alt="Удалить" style={iconStyle} />
                       </button>
                     </div>
 
@@ -1006,19 +994,11 @@ export default function CourseEdit() {
                               <div className="flex gap-1">
                                 <button
                                   type="button"
-                                  className="btn btn-secondary btn-sm"
-                                  onClick={() => handleDownloadTopicContent(c.id)}
-                                  title="Скачать"
-                                >
-                                  📥
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-danger btn-sm"
+                                  style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                                   onClick={() => handleDeleteTopicContent(module.id, t.id, c.id)}
                                   title="Удалить"
                                 >
-                                  🗑️
+                                  <img src="/delete.png" alt="Удалить" style={iconStyle} />
                                 </button>
                               </div>
                             </div>
@@ -1120,20 +1100,20 @@ export default function CourseEdit() {
                         <strong>{test.name || "Без названия"}</strong>
                         <div className="flex gap-2">
                           <button
-                            className="btn btn-primary btn-sm"
+                            style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                             onClick={() =>
                               navigate(`/courses/${courseIdFromParams}/tests/${test.id}/edit`)
                             }
                           >
-                            ✏️
+                            <img src="/edit.png" alt="Редактировать" style={iconStyle} />
                           </button>
                           <button
                             type="button"
-                            className="btn btn-danger btn-sm"
+                            style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                             onClick={() => handleDeleteTest(test.id, false)}
                             title="Удалить тест"
                           >
-                            🗑️
+                            <img src="/delete.png" alt="Удалить" style={iconStyle} />
                           </button>
                         </div>
                       </div>
@@ -1216,20 +1196,20 @@ export default function CourseEdit() {
                     <strong>{test.name || "Без названия"}</strong>
                     <div className="flex gap-2">
                       <button
-                        className="btn btn-primary btn-sm"
+                        style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                         onClick={() =>
                           navigate(`/courses/${courseIdFromParams}/tests/${test.id}/edit`)
                         }
                       >
-                        ✏️
+                        <img src="/edit.png" alt="Редактировать" style={iconStyle} />
                       </button>
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm"
+                        style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                         onClick={() => handleDeleteTest(test.id, true)}
                         title="Удалить тест"
                       >
-                        🗑️
+                        <img src="/delete.png" alt="Удалить" style={iconStyle} />
                       </button>
                     </div>
                   </div>

@@ -12,6 +12,7 @@ function MyTeachingCourses() {
     description: "", 
     categoryId: null 
   });
+  const iconStyle = { width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "contain" };
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -271,7 +272,14 @@ function MyTeachingCourses() {
                   <div className="flex items-center justify-center h-full text-gray-500">Нет изображения</div>
                 )}
                 <div className="absolute top-2 right-2">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${course.isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                  <span
+                    className="px-2 py-1 rounded-full text-xs font-semibold shadow-sm"
+                    style={
+                      course.isPublished
+                        ? { background: 'linear-gradient(90deg, #2563eb, #9333ea)', color: '#fff' }
+                        : { background: '#f3f4f6', color: '#4b5563', border: '1px solid #e5e7eb' }
+                    }
+                  >
                     {course.isPublished ? "Опубликован" : "Черновик"}
                   </span>
                 </div>
@@ -290,7 +298,7 @@ function MyTeachingCourses() {
                 <div className="flex justify-between items-center mb-4 pt-4 border-t border-gray-100">
                   <button
                     type="button"
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="btn btn-primary text-sm px-3 py-2"
                     onClick={() => handleTogglePublish(course.id, course.isPublished)}
                   >
                     {course.isPublished ? "Снять с публикации" : "Опубликовать"}
@@ -300,17 +308,19 @@ function MyTeachingCourses() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="btn btn-primary flex-1"
                     onClick={() => handleEdit(course.id)}
+                    aria-label="Редактировать"
+                    style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                   >
-                    Редактировать
+                    <img src="/edit.png" alt="Редактировать" style={iconStyle} />
                   </button>
                   <button
                     type="button"
-                    className="btn btn-danger"
                     onClick={() => handleDelete(course.id)}
+                    aria-label="Удалить"
+                    style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                   >
-                    Удалить
+                    <img src="/delete.png" alt="Удалить" style={iconStyle} />
                   </button>
                 </div>
               </div>

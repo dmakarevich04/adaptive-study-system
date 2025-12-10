@@ -108,8 +108,7 @@ function MyEnrolledCourses() {
               <div
                 key={course.id}
                 className="card"
-                style={{ cursor: 'pointer', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-                onClick={() => navigate(`/courses/${course.id}`)}
+                style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
               >
                 <div style={{ height: '150px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
                   <img
@@ -122,7 +121,7 @@ function MyEnrolledCourses() {
                 <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <h3 style={{ marginBottom: '0.5rem' }}>{course.name}</h3>
                   <p className="text-secondary" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
-                    Категория: {course.category?.name || "Без категории"}
+                    Категория: <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-semibold">{course.category?.name || "Без категории"}</span>
                   </p>
                   <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: '1rem', flex: 1 }}>
                     {course.description?.length > 100
@@ -138,7 +137,7 @@ function MyEnrolledCourses() {
                     style={{ width: '100%' }}
                     onClick={(e) => {
                       e.stopPropagation(); // Предотвращаем срабатывание onClick на карточке
-                      navigate(`/courses/${course.id}/studying`);
+                      navigate(`/course-studying/${course.id}`);
                     }}
                   >
                     Перейти к изучению

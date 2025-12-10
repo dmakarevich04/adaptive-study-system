@@ -25,6 +25,7 @@ export default function TestEdit() {
   
   // Состояния для загрузки картинок вопросов
   const [questionFiles, setQuestionFiles] = useState({}); // questionId → File
+  const iconStyle = { width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "contain" };
 
   useEffect(() => {
     const id = Number(testId);
@@ -462,11 +463,11 @@ export default function TestEdit() {
         <h2 className="text-2xl font-bold">Редактирование теста</h2>
         <button
           type="button"
-          className="btn btn-danger"
+          style={{ background: 'transparent', border: 'none', padding: '6px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
           onClick={handleDeleteTest}
           title="Удалить тест"
         >
-          🗑️ Удалить тест
+          <img src="/delete.png" alt="Удалить" style={iconStyle} />
         </button>
       </div>
 
@@ -596,11 +597,11 @@ export default function TestEdit() {
               <h4 className="font-bold text-lg">Вопрос #{q.id}</h4>
               <button
                 type="button"
-                className="btn btn-danger btn-sm"
+                style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => handleDeleteQuestion(q.id)}
                 title="Удалить вопрос"
               >
-                🗑️
+                <img src="/delete.png" alt="Удалить" style={iconStyle} />
               </button>
             </div>
 
@@ -661,10 +662,10 @@ export default function TestEdit() {
                   />
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                     onClick={() => handleDeleteQuestionPicture(q.id)}
                   >
-                    Удалить картинку
+                        <img src="/delete.png" alt="Удалить" style={iconStyle} />
                   </button>
                 </div>
               ) : (
@@ -770,11 +771,11 @@ export default function TestEdit() {
                       />
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm"
+                        style={{ background: 'transparent', border: 'none', padding: '4px', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
                         onClick={() => handleDeleteAnswer(q.id, a.id)}
                         title="Удалить ответ"
                       >
-                        🗑️
+                        <img src="/delete.png" alt="Удалить" style={iconStyle} />
                       </button>
                     </div>
                   ))}

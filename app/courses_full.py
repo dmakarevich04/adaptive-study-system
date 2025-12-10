@@ -676,7 +676,17 @@ def submit_test(
                 provided = answers.get(question.id)
                 if provided is None:
                     provided = answers.get(str(question.id))
+            
+            # Если ответ не предоставлен, создаем запись с isCorrect = False
             if provided is None:
+                ua = UserAnswerModel()
+                ua.id = generate_unique_id(db, UserAnswerModel)
+                ua.userId = uid
+                ua.testResultId = result.id
+                ua.questionId = question.id
+                ua.isCorrect = False  # Незаполненный ответ считается неправильным
+                ua.timeSpentInMinutes = 0
+                db.add(ua)
                 continue
 
             # ВАЖНО: Сначала проверяем тип вопроса, потом обрабатываем ответ

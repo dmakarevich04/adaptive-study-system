@@ -16,6 +16,7 @@ export default function TestTaking() {
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [alreadyPassed100, setAlreadyPassed100] = useState(false); // Тест уже пройден на 100%
+  const [topicNames, setTopicNames] = useState({}); // { topicId: topicName }
   
   // Таймер
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -230,6 +231,39 @@ export default function TestTaking() {
       );
 
       setTestResult(result);
+      
+      // Загружаем названия тем для рекомендаций
+      if (result.recommendations && result.recommendations.length > 0) {
+        const teachingApi = new TeachingApi();
+        if (token) {
+          teachingApi.apiClient.defaultHeaders["Authorization"] = `Bearer ${token}`;
+        }
+        
+        const topicIds = [];
+        result.recommendations.forEach(rec => {
+          if (rec.topic_ids && rec.topic_ids.length > 0) {
+            topicIds.push(...rec.topic_ids);
+          }
+        });
+        
+        const uniqueTopicIds = [...new Set(topicIds)];
+        const namesMap = {};
+        
+        await Promise.all(
+          uniqueTopicIds.map(async (topicId) => {
+            try {
+              const topic = await teachingApi.getTopicFullTopicsTopicIdGet(topicId);
+              namesMap[topicId] = topic.name || `Тема ${topicId}`;
+            } catch (err) {
+              console.error(`Ошибка загрузки темы ${topicId}:`, err);
+              namesMap[topicId] = `Тема ${topicId}`;
+            }
+          })
+        );
+        
+        setTopicNames(namesMap);
+      }
+      
       setSubmitting(false);
       // Убрали автоматическое перенаправление
     } catch (err) {
@@ -265,7 +299,7 @@ export default function TestTaking() {
     return (
       <div className="card text-center">
         <p className="text-red-600 mb-4">{error}</p>
-        <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/course-studying/${courseId}`)}>
           Вернуться к курсу
         </button>
       </div>
@@ -300,23 +334,32 @@ export default function TestTaking() {
           <p className="mb-4">Время прохождения: {formatTime(finalTime)}</p>
 
           {recommendations.length > 0 && (
-            <div className="card bg-yellow-100 mb-4">
+            <div className="card mb-4" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)' }}>
               <h2 className="font-bold mb-2">Рекомендации</h2>
               {recommendations.map((rec, index) => (
                 <div key={index} className="mb-2">
-                  <p>{rec.message}</p>
-                  {rec.topic_ids && rec.topic_ids.length > 0 && (
-                    <div className="mt-2 flex gap-2 flex-wrap">
-                      {rec.topic_ids.map((topicId) => (
-                        <button
-                          key={topicId}
-                          onClick={() => navigate(`/courses/${courseId}/topics/${topicId}/studying`)}
-                          className="btn btn-secondary"
-                        >
-                          Тема {topicId}
-                        </button>
+                  {rec.topic_ids && rec.topic_ids.length > 0 ? (
+                    <p>
+                      Рекомендуем повторить следующие темы, в которых были допущены ошибки:{' '}
+                      {rec.topic_ids.map((topicId, idx) => (
+                        <React.Fragment key={topicId}>
+                          <a
+                            href={`#`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(`/course-studying/${courseId}/topics/${topicId}/studying`);
+                            }}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-medium hover:opacity-80 cursor-pointer"
+                            style={{ textDecoration: 'none' }}
+                          >
+                            {topicNames[topicId] || `Тема ${topicId}`}
+                          </a>
+                          {idx < rec.topic_ids.length - 1 && <span className="text-gray-600">, </span>}
+                        </React.Fragment>
                       ))}
-                    </div>
+                    </p>
+                  ) : (
+                    <p>{rec.message}</p>
                   )}
                 </div>
               ))}
@@ -324,7 +367,7 @@ export default function TestTaking() {
           )}
 
           <div className="flex justify-end">
-            <button className="btn btn-primary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+            <button className="btn btn-primary" onClick={() => navigate(`/course-studying/${courseId}`)}>
               Вернуться к курсу
             </button>
           </div>
@@ -332,7 +375,7 @@ export default function TestTaking() {
             <div className="mt-4 text-sm text-gray-700">
               {moduleKnowledge !== null && <p>Обновлённый уровень знаний модуля: <strong>{Math.round(moduleKnowledge)}%</strong></p>}
               {courseKnowledge !== null && <p>Обновлённый уровень знаний курса: <strong>{Math.round(courseKnowledge)}%</strong></p>}
-              <p className="mt-2 text-xs text-gray-500">При возвращении на страницу курса показатели будут подтянуты автоматически.</p>
+              <p className="mt-2 text-xs text-gray-500">При возвращении на страницу курса показатели будут обновлены автоматически.</p>
             </div>
           )}
         </div>
@@ -349,7 +392,7 @@ export default function TestTaking() {
           <p className="text-gray-600 mt-2">Вы уже успешно прошли этот тест с максимальным результатом.</p>
           <p className="text-gray-500 mt-1">Повторное прохождение не требуется.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+        <button className="btn btn-primary" onClick={() => navigate(`/course-studying/${courseId}`)}>
           Вернуться к курсу
         </button>
       </div>
@@ -361,7 +404,7 @@ export default function TestTaking() {
     return (
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>
+          <button className="btn btn-secondary" onClick={() => navigate(`/course-studying/${courseId}`)}>
             ← Назад к курсу
           </button>
           <div className="text-center flex-1">
@@ -386,7 +429,7 @@ export default function TestTaking() {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <button className="btn btn-secondary" onClick={() => navigate(`/courses/${courseId}/studying`)}>← Назад</button>
+          <button className="btn btn-secondary" onClick={() => navigate(`/course-studying/${courseId}`)}>← Назад</button>
         <div className="text-center flex-1">
           <h2 className="font-bold">{test.name}</h2>
         </div>
@@ -404,9 +447,9 @@ export default function TestTaking() {
           return (
             <div key={question.id} className="card">
               <div className="flex items-start justify-between">
-                <h3 className="font-bold">Вопрос {index + 1}</h3>
+                <h3 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Вопрос {index + 1}</h3>
               </div>
-              <p className="mt-2 text-gray-700">{question.text}</p>
+              <p className="mt-2 mb-4 text-gray-700">{question.text}</p>
 
               {question.picture && (
                 <img 
@@ -420,7 +463,11 @@ export default function TestTaking() {
               {question.questionType === "test" && answers.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {answers.map((answer) => (
-                    <label key={answer.id} className="flex items-center gap-3 p-2 border rounded hover:bg-gray-50">
+                    <label 
+                      key={answer.id} 
+                      className="flex items-start gap-3 cursor-pointer"
+                      style={{ display: 'flex', justifyContent: 'flex-start' }}
+                    >
                       <input
                         type="radio"
                         name={`question-${question.id}`}
@@ -428,8 +475,9 @@ export default function TestTaking() {
                         checked={!Array.isArray(userAnswer) && userAnswer === answer.id}
                         onChange={() => handleAnswerChange(question.id, answer.id)}
                         disabled={submitting}
+                        className="mt-1"
                       />
-                      <span>{answer.text}</span>
+                      <span className="text-gray-700">{answer.text}</span>
                     </label>
                   ))}
                 </div>

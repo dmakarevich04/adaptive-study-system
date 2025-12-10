@@ -95,41 +95,54 @@ function CoursesList() {
         ) : (
           courses.map((course) => (
             <div
-              key={course.id}
-              className="card"
-              style={{ cursor: 'pointer', padding: 0, overflow: 'hidden' }}
-              onClick={() => navigate(`/courses/${course.id}`)}
-            >
-              <div style={{ height: '200px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
-                <img
-                  src={course.picture ? `/full/courses/${course.id}/picture` : "/default.png"}
-                  alt={course.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => (e.target.src = "https://via.placeholder.com/400x200?text=No+Image")}
-                />
-              </div>
-              <div style={{ padding: '1.5rem' }}>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 style={{ margin: 0 }}>{course.name}</h3>
-                  <span style={{ 
-                    fontSize: '0.75rem', 
-                    backgroundColor: '#e0e7ff', 
-                    color: '#4338ca', 
-                    padding: '0.25rem 0.5rem', 
-                    borderRadius: '9999px',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {course.category?.name || "Без категории"}
-                  </span>
-                </div>
-                <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
-                  {course.description.length > 100
-                    ? course.description.slice(0, 100) + "..."
-                    : course.description}
-                </p>
-                <button className="btn btn-primary" style={{ width: '100%' }}>Подробнее</button>
-              </div>
-            </div>
+  key={course.id}
+  className="card"
+  style={{
+    cursor: 'pointer',
+    padding: 0,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    minHeight: '350px' // ← Фиксируем минимальную высоту
+  }}
+  onClick={() => navigate(`/courses/${course.id}`)}
+>
+  <div style={{ height: '200px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
+    <img
+      src={course.picture ? `/full/courses/${course.id}/picture` : "/default.png"}
+      alt={course.name}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      onError={(e) => (e.target.src = "https://via.placeholder.com/400x200?text=No+Image")}
+    />
+  </div>
+  <div style={{
+    padding: '1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    flex: 1 // ← Занимает всё свободное пространство
+  }}>
+    <div>
+      <div className="flex justify-between items-start mb-2">
+        <h3 style={{ margin: 0 }}>{course.name}</h3>
+        <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-semibold" style={{ 
+          fontSize: '0.75rem', 
+          padding: '0.25rem 0.5rem', 
+          whiteSpace: 'nowrap'
+        }}>
+          {course.category?.name || "Без категории"}
+        </span>
+      </div>
+      <p className="text-secondary" style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
+        {course.description.length > 100
+          ? course.description.slice(0, 100) + "..."
+          : course.description}
+      </p>
+    </div>
+    <button className="btn btn-primary" style={{ width: '100%' }}>Подробнее</button>
+  </div>
+</div>
           ))
         )}
       </div>

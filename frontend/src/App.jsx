@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, NavLink, useNavigate, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import CoursesList from "./pages/CoursesList.jsx";
 import CourseInfo from "./pages/CourseInfo.jsx";
@@ -56,13 +56,14 @@ function App() {
         <Router>
           <Header />
           <main className="main-content">
+            
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/courses" element={<CoursesList />} />
               <Route path="/courses/:courseId" element={<CourseInfo />} />
-              <Route path="/courses/:courseId/studying" element={<Studying />} />
-              <Route path="/courses/:courseId/topics/:topicId/studying" element={<TopicStudying />} />
-              <Route path="/courses/:courseId/tests/:testId/take" element={<TestTaking />} />
+              <Route path="/course-studying/:courseId" element={<Studying />} />
+              <Route path="/course-studying/:courseId/topics/:topicId/studying" element={<TopicStudying />} />
+              <Route path="/course-studying/:courseId/tests/:testId/take" element={<TestTaking />} />
               <Route path="/teaching" element={<Teaching />} />
               <Route path="/my-learning" element={<MyCourses />} />
               <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
@@ -78,28 +79,58 @@ function App() {
 }
 
 // --- Компонент Header ---
+// --- Компонент Header ---
 function Header() {
   const { user } = useContext(UserContext);
+  const location = useLocation();
+
   return (
     <header className="navbar">
-      <div className="flex items-center gap-4">
-        <span className="text-xl font-bold text-indigo-600">EduFlex</span>
+      {/* Левая часть: логотип */}
+      <div className="flex items-center gap-2">
+        <img
+          src="/logo.png"
+          alt="EduFlex"
+          style={{ height: "50px", width: "auto" }} // или задайте фиксированный размер
+        />
+        <span className="text-xl font-bold text-indigo-600">EduFlex — твоя адаптивая система обучения.</span>
       </div>
 
-      {user && (
-        <nav className="nav-links">
-          <NavLink to="/courses" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Курсы</NavLink>
-          {user.roleId === 1 && <NavLink to="/my-learning" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Моё обучение</NavLink>}
-          {user.roleId === 2 && <NavLink to="/teaching" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Преподавание</NavLink>}
-          {user.roleId === 3 && <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>Админ панель</NavLink>}
-        </nav>
-      )}
-
-      {user && <LogoutButton />}
+      {/* Центр/право: навигация и кнопка выхода */}
+      {user ? (
+        <div className="flex items-center gap-6">
+          <nav className="nav-links">
+            <NavLink to="/courses" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Курсы
+            </NavLink>
+            {user.roleId === 1 && (
+              <NavLink 
+                to="/my-learning" 
+                className={({ isActive }) => {
+                  const isStudyingPage = location.pathname.startsWith('/course-studying/');
+                  return (isActive || isStudyingPage) ? "nav-link active" : "nav-link";
+                }}
+              >
+                Моё обучение
+              </NavLink>
+            )}
+            {user.roleId === 2 && (
+              <NavLink to="/teaching" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+                Преподавание
+              </NavLink>
+            )}
+            {user.roleId === 3 && (
+              <NavLink to="/admin" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+                Админ панель
+              </NavLink>
+            )}
+          </nav>
+          <LogoutButton />
+        </div>
+      ) : null}
     </header>
   );
 }
-
 // --- Компонент LogoutButton ---
 function LogoutButton() {
   const { setUser } = useContext(UserContext);
@@ -121,7 +152,19 @@ function LogoutButton() {
       });
   };
 
-  return <button className="btn btn-secondary" onClick={handleLogout}>Выйти</button>;
+  return (
+    <img
+      src="/logout.png"
+      alt="Выйти"
+      onClick={handleLogout}
+      style={{
+        height: "40px",         // или другая высота по вашему дизайну
+        cursor: "pointer",
+        transition: "opacity 0.2s",
+      }}
+      className="hover:opacity-80"
+    />
+  );
 }
 
 // --- Компонент Placeholder ---

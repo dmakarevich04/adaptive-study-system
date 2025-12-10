@@ -177,7 +177,7 @@ export default function TopicStudying() {
     return (
       <div className="error">
         <p>{error}</p>
-        <button onClick={() => navigate(`/courses/${courseId}/studying`)}>
+        <button onClick={() => navigate(`/course-studying/${courseId}`)}>
           Вернуться к курсу
         </button>
       </div>
@@ -186,15 +186,15 @@ export default function TopicStudying() {
 
   return (
     <div className="topic-studying-page">
-      <div className="topic-header flex items-center justify-between mb-4">
+      <div className="topic-header flex flex-col gap-4 mb-4">
         <button
-          className="btn btn-secondary"
-          onClick={() => navigate(`/courses/${courseId}/studying`)}
+          className="btn btn-secondary self-start"
+          onClick={() => navigate(`/course-studying/${courseId}`)}
         >
           ← Назад к курсу
         </button>
         {topic && (
-          <div className="topic-info ml-4">
+          <div className="topic-info">
             <h1 className="text-2xl font-bold mb-2">{topic.name}</h1>
             {topic.description && (
               <p className="topic-description text-gray-700">{topic.description}</p>
@@ -257,10 +257,18 @@ export default function TopicStudying() {
                       )}
 
                       {fileType === "file" && (
-                        <div className="file-container flex items-center justify-between">
-                          <span className="text-sm text-gray-700 mr-3">
+                        <div className="file-container flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <img 
+                              src="/file.png" 
+                              alt="Документ" 
+                              style={{ width: '32px', height: '32px' }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <span className="text-sm text-gray-700 font-medium">
                             {prettyName}
                           </span>
+                          </div>
                           <button
                             className="btn btn-primary btn-sm"
                             onClick={() => handleDownload(content.id, prettyName)}
